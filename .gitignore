@@ -1,0 +1,52 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Compiled Files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.pytest_cache/
+
+# Large Model Files / Trained Binary Assets
+model/logistic_model.pkl
+*.pkl
+*.joblib
+
+# Node.js (Frontend Dependencies)
+frontend/node_modules/
+node_modules/
+
+# Frontend Production Builds
+frontend/dist/
+frontend/build/
+
+# Local Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS specific files
+DS_Store
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE & Code Editors settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

@@ -9,8 +9,11 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 
+# Determine absolute path to the directory containing this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # 1. Read clean telemetry dataset
-df = pd.read_csv("clean_telemetry.csv")
+df = pd.read_csv(os.path.join(SCRIPT_DIR, "clean_telemetry.csv"))
 
 # 2. Define binary target variable
 df['flight_target'] = df['flight_status'].apply(lambda x: "Completed" if x == "Completed" else "Non-completed")
@@ -56,7 +59,6 @@ log_model = Pipeline(steps=[
 log_model.fit(X_train, y_train)
 
 # 7. Save model
-os.makedirs("output", exist_ok=True)
-joblib.dump(log_model, "logistic_model.pkl")
-joblib.dump(log_model, "output/logistic_model.pkl")
-print("✔ Model trained and saved successfully as 'logistic_model.pkl'")
+os.makedirs(os.path.join(os.path.dirname(SCRIPT_DIR), "model"), exist_ok=True)
+joblib.dump(log_model, os.path.join(os.path.dirname(SCRIPT_DIR), "model", "logistic_model.pkl"))
+print("[SUCCESS] Model trained and saved successfully as 'model/logistic_model.pkl'")

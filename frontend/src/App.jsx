@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dispatch'); // 'orders' or 'dispatch'
+  const [activeTab, setActiveTab] = useState('dispatch'); // 'orders', 'dispatch', or 'config'
   
   // Data State
   const [orders, setOrders] = useState([]);
@@ -28,8 +28,52 @@ function App() {
   
   // Form State (New Order)
   const [formWeight, setFormWeight] = useState(1500);
-  const [formCustX, setFormCustX] = useState(340.0);
-  const [formCustY, setFormCustY] = useState(371.0);
+  const [formCustX, setFormCustX] = useState('');
+  const [formCustY, setFormCustY] = useState('');
+
+  // Configuration State
+  const [configWarehouseX, setConfigWarehouseX] = useState(10.8411);
+  const [configWarehouseY, setConfigWarehouseY] = useState(106.8102);
+  const [configMinBattery, setConfigMinBattery] = useState(30);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  // Address Geocoding State
+  const [addressSearchQuery, setAddressSearchQuery] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+
+  // Configuration Address Geocoding State
+  const [configAddressQuery, setConfigAddressQuery] = useState('');
+  const [configAddressSuggestions, setConfigAddressSuggestions] = useState([]);
+  const [searchingConfigAddress, setSearchingConfigAddress] = useState(false);
+
+  // Config Sub Tab
+  const [configSubTab, setConfigSubTab] = useState('general'); // 'general', 'drones', 'orders'
+
+  // Drone CRUD Modal States
+  const [isDroneModalOpen, setIsDroneModalOpen] = useState(false);
+  const [droneModalMode, setDroneModalMode] = useState('add'); // 'add' or 'edit'
+  const [droneFormId, setDroneFormId] = useState('');
+  const [droneFormModel, setDroneFormModel] = useState('');
+  const [droneFormSize, setDroneFormSize] = useState('Medium');
+  const [droneFormManufacturer, setDroneFormManufacturer] = useState('');
+  const [droneFormPropellers, setDroneFormPropellers] = useState(4);
+  const [droneFormMaxCarry, setDroneFormMaxCarry] = useState(5.0);
+  const [droneFormX, setDroneFormX] = useState(10.8411);
+  const [droneFormY, setDroneFormY] = useState(106.8102);
+  const [droneFormBattery, setDroneFormBattery] = useState(100);
+  const [droneFormStatus, setDroneFormStatus] = useState('Ready');
+
+  // Order CRUD Modal States
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [orderModalMode, setOrderModalMode] = useState('edit'); // 'add' or 'edit'
+  const [orderFormId, setOrderFormId] = useState('');
+  const [orderFormWeight, setOrderFormWeight] = useState(1500);
+  const [orderFormX, setOrderFormX] = useState('');
+  const [orderFormY, setOrderFormY] = useState('');
+  const [orderFormAddressQuery, setOrderFormAddressQuery] = useState('');
+  const [orderFormAddressSuggestions, setOrderFormAddressSuggestions] = useState([]);
+  const [searchingOrderFormAddress, setSearchingOrderFormAddress] = useState(false);
 
   // Fetch Orders Queue
   const fetchOrders = async () => {
@@ -82,18 +126,343 @@ function App() {
     }
   };
 
+  // Fetch System Configuration
+  const [fetchingConfig, setFetchingConfig] = useState(false);
+  const fetchConfig = async () => {
+    setFetchingConfig(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/config`);
+      if (res.ok) {
+        const data = await res.json();
+        setConfigWarehouseX(data.warehouse_x);
+        setConfigWarehouseY(data.warehouse_y);
+        setConfigMinBattery(data.min_battery_level);
+      }
+    } catch (err) {
+      console.error("Lỗi khi fetch config:", err);
+    } finally {
+      setFetchingConfig(false);
+    }
+  };
+
   // Run on Mount & Active Tab updates
   useEffect(() => {
     fetchOrders();
     fetchDrones();
     fetchWind();
+    fetchConfig();
   }, [activeTab]);
+
+  // Handle Address Geocoding Search (OpenStreetMap Nominatim)
+  const handleSearchAddress = async (query) => {
+    if (!query || query.trim().length < 3) {
+      alert("Vui lòng nhập địa chỉ tìm kiếm dài hơn 3 ký tự!");
+      return;
+    }
+
+    setSearchingAddress(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, {
+        headers: {
+          'Accept-Language': 'vi,en;q=0.9',
+          'User-Agent': 'uav-dss-dispatch-app/1.0'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length === 0) {
+          alert("Không tìm thấy tọa độ cho địa chỉ này. Vui lòng thử tìm kiếm khác.");
+        }
+        setAddressSuggestions(data);
+      } else {
+        alert("Lỗi kết nối tới dịch vụ tìm kiếm bản đồ.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi tìm kiếm địa chỉ:", err);
+      alert("Không thể kết nối tới dịch vụ bản đồ.");
+    } finally {
+      setSearchingAddress(false);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion) => {
+    setFormCustX(parseFloat(suggestion.lat).toFixed(4));
+    setFormCustY(parseFloat(suggestion.lon).toFixed(4));
+    setAddressSearchQuery(suggestion.display_name);
+    setAddressSuggestions([]);
+  };
+
+  // Handle Configuration Address Geocoding Search (OpenStreetMap Nominatim)
+  const handleSearchConfigAddress = async (query) => {
+    if (!query || query.trim().length < 3) {
+      alert("Vui lòng nhập địa chỉ tìm kiếm dài hơn 3 ký tự!");
+      return;
+    }
+
+    setSearchingConfigAddress(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, {
+        headers: {
+          'Accept-Language': 'vi,en;q=0.9',
+          'User-Agent': 'uav-dss-dispatch-app/1.0'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length === 0) {
+          alert("Không tìm thấy tọa độ cho địa chỉ này. Vui lòng thử tìm kiếm khác.");
+        }
+        setConfigAddressSuggestions(data);
+      } else {
+        alert("Lỗi kết nối tới dịch vụ tìm kiếm bản đồ.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi tìm kiếm địa chỉ:", err);
+      alert("Không thể kết nối tới dịch vụ bản đồ.");
+    } finally {
+      setSearchingConfigAddress(false);
+    }
+  };
+
+  const handleSelectConfigSuggestion = (suggestion) => {
+    setConfigWarehouseX(parseFloat(suggestion.lat).toFixed(4));
+    setConfigWarehouseY(parseFloat(suggestion.lon).toFixed(4));
+    setConfigAddressQuery(suggestion.display_name);
+    setConfigAddressSuggestions([]);
+  };
+
+  // Open Drone Modal
+  const openDroneModal = (mode, drone = null) => {
+    setDroneModalMode(mode);
+    if (mode === 'edit' && drone) {
+      setDroneFormId(drone.drone_id);
+      setDroneFormModel(drone.drone_model);
+      setDroneFormSize(drone.drone_size);
+      setDroneFormManufacturer(drone.manufacturer);
+      setDroneFormPropellers(drone.propeller_count);
+      setDroneFormMaxCarry(drone.max_carry_weight);
+      setDroneFormX(drone.Current_X);
+      setDroneFormY(drone.Current_Y);
+      setDroneFormBattery(drone.Battery_Level);
+      setDroneFormStatus(drone.Status);
+    } else {
+      setDroneFormId('');
+      setDroneFormModel('');
+      setDroneFormSize('Medium');
+      setDroneFormManufacturer('');
+      setDroneFormPropellers(4);
+      setDroneFormMaxCarry(5.0);
+      setDroneFormX(10.8411);
+      setDroneFormY(106.8102);
+      setDroneFormBattery(100);
+      setDroneFormStatus('Ready');
+    }
+    setIsDroneModalOpen(true);
+  };
+
+  // Submit Drone Form (Add/Edit)
+  const handleSubmitDrone = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setNotification('');
+    
+    const payload = {
+      drone_id: droneFormId,
+      drone_model: droneFormModel,
+      drone_size: droneFormSize,
+      manufacturer: droneFormManufacturer,
+      propeller_count: parseInt(droneFormPropellers),
+      max_carry_weight: parseFloat(droneFormMaxCarry),
+      current_x: parseFloat(droneFormX),
+      current_y: parseFloat(droneFormY),
+      battery_level: parseInt(droneFormBattery),
+      status: droneFormStatus
+    };
+
+    try {
+      let res;
+      if (droneModalMode === 'add') {
+        res = await fetch(`${API_BASE_URL}/api/drones`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch(`${API_BASE_URL}/api/drones/${droneFormId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (res.ok) {
+        setNotification(droneModalMode === 'add' ? '🎉 Thêm drone mới thành công!' : '🎉 Cập nhật thông tin drone thành công!');
+        setIsDroneModalOpen(false);
+        fetchDrones();
+      } else {
+        const errorData = await res.json();
+        setErrorMsg(errorData.detail || 'Lỗi khi gửi yêu cầu lưu thông tin drone.');
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+    }
+  };
+
+  // Delete Drone
+  const handleDeleteDrone = async (droneId) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa Drone ${droneId}?`)) return;
+    setErrorMsg('');
+    setNotification('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/drones/${droneId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setNotification('🎉 Đã xóa drone thành công khỏi hệ thống!');
+        fetchDrones();
+      } else {
+        setErrorMsg('Lỗi khi xóa drone khỏi backend.');
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+    }
+  };
+
+  // Open Order Modal
+  const openOrderModal = (mode, order = null) => {
+    setOrderModalMode(mode);
+    setOrderFormAddressSuggestions([]);
+    setOrderFormAddressQuery('');
+    if (mode === 'edit' && order) {
+      setOrderFormId(order.Order_ID);
+      setOrderFormWeight(order.Total_Weight_Gram);
+      setOrderFormX(order.Customer_X);
+      setOrderFormY(order.Customer_Y);
+    } else {
+      setOrderFormId('');
+      setOrderFormWeight(1500);
+      setOrderFormX('');
+      setOrderFormY('');
+    }
+    setIsOrderModalOpen(true);
+  };
+
+  // Search Address for Order Form in Modal
+  const handleSearchOrderFormAddress = async (query) => {
+    if (!query || query.trim().length < 3) {
+      alert("Vui lòng nhập địa chỉ tìm kiếm dài hơn 3 ký tự!");
+      return;
+    }
+    setSearchingOrderFormAddress(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, {
+        headers: {
+          'Accept-Language': 'vi,en;q=0.9',
+          'User-Agent': 'uav-dss-dispatch-app/1.0'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length === 0) {
+          alert("Không tìm thấy tọa độ cho địa chỉ này. Vui lòng thử tìm kiếm khác.");
+        }
+        setOrderFormAddressSuggestions(data);
+      } else {
+        alert("Lỗi kết nối tới dịch vụ tìm kiếm bản đồ.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi tìm kiếm địa chỉ:", err);
+      alert("Không thể kết nối tới dịch vụ bản đồ.");
+    } finally {
+      setSearchingOrderFormAddress(false);
+    }
+  };
+
+  const handleSelectOrderFormSuggestion = (suggestion) => {
+    setOrderFormX(parseFloat(suggestion.lat).toFixed(4));
+    setOrderFormY(parseFloat(suggestion.lon).toFixed(4));
+    setOrderFormAddressQuery(suggestion.display_name);
+    setOrderFormAddressSuggestions([]);
+  };
+
+  // Submit Order Form (Add / Edit)
+  const handleSubmitOrder = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setNotification('');
+
+    if (!orderFormX || !orderFormY) {
+      setErrorMsg('Vui lòng định vị địa chỉ trên bản đồ trước!');
+      return;
+    }
+
+    try {
+      let res;
+      if (orderModalMode === 'add') {
+        res = await fetch(`${API_BASE_URL}/api/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            Order_ID: orderFormId || undefined,
+            Customer_X: parseFloat(orderFormX),
+            Customer_Y: parseFloat(orderFormY),
+            Total_Weight_Gram: parseFloat(orderFormWeight)
+          })
+        });
+      } else {
+        res = await fetch(`${API_BASE_URL}/api/orders/${orderFormId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            Customer_X: parseFloat(orderFormX),
+            Customer_Y: parseFloat(orderFormY),
+            Total_Weight_Gram: parseFloat(orderFormWeight)
+          })
+        });
+      }
+
+      if (res.ok) {
+        setNotification(orderModalMode === 'add' ? '🎉 Thêm đơn hàng thành công!' : '🎉 Cập nhật đơn hàng thành công!');
+        setIsOrderModalOpen(false);
+        fetchOrders();
+      } else {
+        setErrorMsg('Lỗi khi lưu thông tin đơn hàng lên server.');
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+    }
+  };
+
+  // Delete Order
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa đơn hàng ${orderId}?`)) return;
+    setErrorMsg('');
+    setNotification('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setNotification('🎉 Đã xóa đơn hàng thành công khỏi hệ thống!');
+        fetchOrders();
+      } else {
+        setErrorMsg('Lỗi khi xóa đơn hàng khỏi backend.');
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+    }
+  };
 
   // Handle Order Submit
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setNotification('');
+
+    if (!formCustX || !formCustY) {
+      setErrorMsg('Vui lòng tìm kiếm và chọn một địa chỉ cụ thể trên bản đồ gợi ý để lấy tọa độ giao hàng!');
+      return;
+    }
     
     try {
       const res = await fetch(`${API_BASE_URL}/api/orders`, {
@@ -111,8 +480,10 @@ function App() {
         setNotification(`🎉 Đặt hàng thành công! Mã đơn hàng của bạn là: ${newOrder.Order_ID} (Đã lưu database).`);
         // Reset form to defaults
         setFormWeight(1500);
-        setFormCustX(340.0);
-        setFormCustY(371.0);
+        setFormCustX('');
+        setFormCustY('');
+        setAddressSearchQuery('');
+        setAddressSuggestions([]);
         fetchOrders();
       } else {
         setErrorMsg('Lỗi khi gửi yêu cầu đặt hàng lên server.');
@@ -162,8 +533,10 @@ function App() {
       if (res.ok) {
         const data = await res.json();
         setRiskResults(data);
-        if (data.length > 0) {
-          setSelectedDroneId(data[0].Drone_ID);
+        if (data.status === 'success' && data.recommendations.length > 0) {
+          setSelectedDroneId(data.recommendations[0].Drone_ID);
+        } else {
+          setSelectedDroneId('');
         }
       } else {
         const errorData = await res.json();
@@ -200,6 +573,46 @@ function App() {
       }
     } catch (err) {
       setErrorMsg('Không thể kết nối đến máy chủ backend.');
+    }
+  };
+
+  // Handle Save Configuration
+  const handleSaveConfig = async (e) => {
+    e.preventDefault();
+    setSavingConfig(true);
+    setErrorMsg('');
+    setNotification('');
+
+    if (!configWarehouseX || !configWarehouseY) {
+      setErrorMsg('Vui lòng tìm kiếm và chọn một vị trí kho hợp lệ trên bản đồ!');
+      setSavingConfig(false);
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          warehouse_x: parseFloat(configWarehouseX),
+          warehouse_y: parseFloat(configWarehouseY),
+          min_battery_level: parseInt(configMinBattery)
+        })
+      });
+      
+      if (res.ok) {
+        setNotification('🎉 Đã cập nhật và lưu cấu hình hệ thống thành công!');
+        setConfigAddressQuery('');
+        setConfigAddressSuggestions([]);
+        fetchConfig();
+      } else {
+        setErrorMsg('Lỗi khi lưu cấu hình lên server.');
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+      console.error(err);
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -254,6 +667,12 @@ function App() {
           >
             🎛️ Trung Tâm Điều Phối
           </li>
+          <li 
+            className={`menu-item ${activeTab === 'config' ? 'active' : ''}`}
+            onClick={() => setActiveTab('config')}
+          >
+            ⚙️ Cấu Hình Hệ Thống
+          </li>
         </ul>
       </nav>
 
@@ -297,32 +716,60 @@ function App() {
                   <div className="form-hint">Ví dụ: 1500 Gram = 1.5 kg (Tải trọng giới hạn 0.1kg - 25kg)</div>
                 </div>
 
-                <div className="row">
-                  <div className="col form-group">
-                    <label>Tọa độ X / Vĩ độ (Latitude):</label>
+                <div className="form-group" style={{position: 'relative'}}>
+                  <label>Địa chỉ giao hàng (Tìm kiếm bản đồ):</label>
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
                     <input 
-                      type="number" 
-                      step="0.0001"
-                      min="0.0"
-                      max="1000.0"
-                      value={formCustX}
-                      onChange={(e) => setFormCustX(e.target.value)}
-                      required
+                      type="text" 
+                      placeholder="Nhập địa chỉ giao hàng (Ví dụ: Khu công nghệ cao Quận 9, HCM...)"
+                      value={addressSearchQuery}
+                      onChange={(e) => setAddressSearchQuery(e.target.value)}
                     />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      style={{width: 'auto', padding: '0 1.5rem'}}
+                      onClick={() => handleSearchAddress(addressSearchQuery)}
+                      disabled={searchingAddress}
+                    >
+                      {searchingAddress ? <div className="spinner"></div> : 'Tìm kiếm 🔍'}
+                    </button>
                   </div>
-                  <div className="col form-group">
-                    <label>Tọa độ Y / Kinh độ (Longitude):</label>
-                    <input 
-                      type="number" 
-                      step="0.0001"
-                      min="0.0"
-                      max="1000.0"
-                      value={formCustY}
-                      onChange={(e) => setFormCustY(e.target.value)}
-                      required
-                    />
-                  </div>
+                  {addressSuggestions.length > 0 && (
+                    <ul className="suggestions-list">
+                      {addressSuggestions.map((s, index) => (
+                        <li 
+                          key={index}
+                          onClick={() => handleSelectSuggestion(s)}
+                          style={{listStyleType: 'none'}}
+                        >
+                          📍 {s.display_name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
+
+                {formCustX && formCustY && (
+                  <div style={{
+                    marginTop: '1rem',
+                    marginBottom: '1rem',
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(0, 242, 254, 0.05)',
+                    border: '1px solid rgba(0, 242, 254, 0.15)',
+                    borderRadius: '10px',
+                    fontSize: '0.9rem',
+                    color: 'var(--color-accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <span>📍</span>
+                    <div>
+                      <strong>Tọa độ đã xác định:</strong> Vĩ độ (X): {formCustX} | Kinh độ (Y): {formCustY}
+                    </div>
+                  </div>
+                )}
 
                 <button type="submit" className="btn btn-primary" style={{marginTop: '1rem'}}>
                   Xác Nhận Đặt Hàng
@@ -484,10 +931,20 @@ function App() {
                       Vui lòng chọn một đơn hàng bên trái và click vào nút phân tích để kích hoạt mô hình AI.
                     </div>
                   </div>
-                ) : riskResults.length === 0 ? (
-                  <div className="alert alert-danger" style={{margin: 0}}>
-                    <h4>🔴 CẢNH BÁO KHÔNG LƯU CỰC ĐOAN:</h4>
-                    <p style={{marginTop: '0.5rem'}}>Bộ não AI dự báo tất cả các phương án cất cánh đều gặp nguy hiểm dưới sức gió hiện tại! Khuyến nghị chuyển sang vận tải mặt đất.</p>
+                ) : riskResults.status === 'no_ready_drones' ? (
+                  <div className="alert alert-warning" style={{margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-warning)'}}>
+                    <h4 style={{color: 'var(--color-warning)', fontWeight: 'bold'}}>⚠️ KHÔNG CÓ THIẾT BỊ SẴN SÀNG:</h4>
+                    <p style={{color: '#fff'}}>Hiện tại toàn bộ đội bay đang bận (Busy) hoặc bảo trì. Không tìm thấy thiết bị nào ở trạng thái <strong>Ready</strong> để cất cánh.</p>
+                  </div>
+                ) : riskResults.status === 'no_drones_match_criteria' ? (
+                  <div className="alert alert-warning" style={{margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-warning)'}}>
+                    <h4 style={{color: 'var(--color-warning)', fontWeight: 'bold'}}>⚠️ THIẾT BỊ KHÔNG ĐỦ TIÊU CHUẨN:</h4>
+                    <p style={{color: '#fff'}}>Tìm thấy thiết bị rảnh nhưng không có chiếc nào đáp ứng tiêu chuẩn tối thiểu về mức pin {"(>= " + configMinBattery + "%)"} hoặc tải trọng tối đa lớn hơn khối lượng đơn bưu kiện.</p>
+                  </div>
+                ) : riskResults.status === 'all_rejected_by_ai' ? (
+                  <div className="alert alert-danger" style={{margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-danger)'}}>
+                    <h4 style={{color: 'var(--color-danger)', fontWeight: 'bold'}}>🔴 CẢNH BÁO BẢO AN AN TOÀN BAY:</h4>
+                    <p style={{color: '#fff'}}>Bộ não AI dự báo tất cả các phương án cất cánh đều gặp nguy hiểm dưới sức gió hiện tại! Khuyến nghị chuyển sang vận tải mặt đất.</p>
                   </div>
                 ) : (
                   <div>
@@ -506,7 +963,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {riskResults.map((rec) => (
+                          {riskResults.recommendations && riskResults.recommendations.map((rec) => (
                             <tr key={rec.Drone_ID}>
                               <td><strong>{rec.Drone_ID}</strong></td>
                               <td>{rec.Model}</td>
@@ -524,7 +981,7 @@ function App() {
                         value={selectedDroneId} 
                         onChange={(e) => setSelectedDroneId(e.target.value)}
                       >
-                        {riskResults.map(rec => (
+                        {riskResults.recommendations && riskResults.recommendations.map(rec => (
                           <option key={rec.Drone_ID} value={rec.Drone_ID}>
                             {rec.Drone_ID} - {rec.Model} (Pin: {rec.Pin_Hien_Tai})
                           </option>
@@ -590,24 +1047,13 @@ function App() {
                             <td>{d.manufacturer}</td>
                             <td>{d.propeller_count} cánh</td>
                             <td>{d.max_carry_weight} kg</td>
-                            <td>
-                              <div className="battery-container">
-                                <div className="battery-bar-outer">
-                                  <div 
-                                    className="battery-bar-inner" 
-                                    style={{
-                                      width: `${d.Battery_Level}%`,
-                                      backgroundColor: batteryColor
-                                    }}
-                                  ></div>
-                                </div>
-                                <span className="battery-text" style={{color: batteryColor}}>{d.Battery_Level}%</span>
-                              </div>
+                            <td style={{ color: batteryColor, fontWeight: 'bold' }}>
+                              {d.Battery_Level}%
                             </td>
                             <td>X: {d.Current_X} | Y: {d.Current_Y}</td>
                             <td>
-                              <span className={`badge ${d.Status === 'Ready' ? 'badge-ready' : 'badge-busy'}`}>
-                                {d.Status === 'Ready' ? 'Ready 🟢' : 'Busy 🔴'}
+                              <span className={`status-badge ${d.Status.toLowerCase() === 'ready' ? 'status-ready' : 'status-busy'}`}>
+                                {d.Status}
                               </span>
                             </td>
                           </tr>
@@ -618,7 +1064,404 @@ function App() {
                 )}
               </div>
             </div>
+          </div>
+        )}
 
+        {/* ======================================= */}
+        {/* SCREEN 3: SYSTEM CONFIGURATION           */}
+        {/* ======================================= */}
+        {activeTab === 'config' && (
+          <div>
+            <h1>⚙️ Cấu Hình Hệ Thống</h1>
+            <p className="subtitle">Điều chỉnh các thông số vận hành động, quản lý đội bay UAV và quản lý đơn hàng của hệ thống.</p>
+            
+            {/* Sub Tabs Selection */}
+            <div className="sub-tabs">
+              <div 
+                className={`sub-tab-item ${configSubTab === 'general' ? 'active' : ''}`}
+                onClick={() => setConfigSubTab('general')}
+              >
+                ⚙️ Vận hành chung
+              </div>
+              <div 
+                className={`sub-tab-item ${configSubTab === 'drones' ? 'active' : ''}`}
+                onClick={() => setConfigSubTab('drones')}
+              >
+                🛸 Quản lý Đội bay UAV
+              </div>
+              <div 
+                className={`sub-tab-item ${configSubTab === 'orders' ? 'active' : ''}`}
+                onClick={() => setConfigSubTab('orders')}
+              >
+                📋 Quản lý Đơn hàng
+              </div>
+            </div>
+
+            {/* Sub Tab 1: General Config */}
+            {configSubTab === 'general' && (
+              <div className="card-panel" style={{maxWidth: '700px', margin: '0 auto'}}>
+                <h2 className="card-title">🔧 Cấu hình thông số động</h2>
+                
+                {fetchingConfig ? (
+                  <div style={{padding: '2rem', display: 'flex', justifyContent: 'center'}}><div className="spinner"></div></div>
+                ) : (
+                  <form onSubmit={handleSaveConfig}>
+                    <div className="form-group" style={{position: 'relative'}}>
+                      <label>Vị trí Kho hàng trung tâm (Tìm kiếm bản đồ):</label>
+                      <div style={{display: 'flex', gap: '0.5rem'}}>
+                        <input 
+                          type="text" 
+                          placeholder="Nhập địa chỉ của kho hàng mới (Ví dụ: Khu công nghệ cao, Quận 9, HCM...)"
+                          value={configAddressQuery}
+                          onChange={(e) => setConfigAddressQuery(e.target.value)}
+                        />
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary" 
+                          style={{width: 'auto', padding: '0 1.5rem'}}
+                          onClick={() => handleSearchConfigAddress(configAddressQuery)}
+                          disabled={searchingConfigAddress}
+                        >
+                          {searchingConfigAddress ? <div className="spinner"></div> : 'Tìm kiếm 🔍'}
+                        </button>
+                      </div>
+                      {configAddressSuggestions.length > 0 && (
+                        <ul className="suggestions-list">
+                          {configAddressSuggestions.map((s, index) => (
+                            <li 
+                              key={index}
+                              onClick={() => handleSelectConfigSuggestion(s)}
+                              style={{listStyleType: 'none'}}
+                            >
+                              📍 {s.display_name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {configWarehouseX && configWarehouseY && (
+                      <div style={{
+                        marginTop: '1rem',
+                        marginBottom: '1.5rem',
+                        padding: '0.85rem 1rem',
+                        background: 'rgba(0, 242, 254, 0.05)',
+                        border: '1px solid rgba(0, 242, 254, 0.15)',
+                        borderRadius: '10px',
+                        fontSize: '0.9rem',
+                        color: 'var(--color-accent)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}>
+                        <span>🏢</span>
+                        <div>
+                          <strong>Tọa độ kho đã xác định:</strong> Vĩ độ (X): {configWarehouseX} | Kinh độ (Y): {configWarehouseY}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label>Mức pin tối thiểu để cất cánh (%):</label>
+                      <input 
+                        type="number" 
+                        min="10" 
+                        max="90" 
+                        value={configMinBattery}
+                        onChange={(e) => setConfigMinBattery(e.target.value)}
+                        required
+                      />
+                      <div className="form-hint">Drones có mức pin thấp hơn mức này sẽ không được đề xuất bay (Mặc định: 30%)</div>
+                    </div>
+
+                    <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
+                      <button type="submit" className="btn btn-primary" disabled={savingConfig}>
+                        {savingConfig ? (
+                          <>
+                            <div className="spinner" style={{marginRight: '0.5rem'}}></div> Đang lưu...
+                          </>
+                        ) : '💾 Lưu Cấu Hình'}
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        onClick={() => {
+                          setConfigWarehouseX(10.8411);
+                          setConfigWarehouseY(106.8102);
+                          setConfigMinBattery(30);
+                          setConfigAddressQuery('');
+                          setConfigAddressSuggestions([]);
+                        }}
+                        disabled={savingConfig}
+                      >
+                        Reset về mặc định
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* Sub Tab 2: Drones CRUD */}
+            {configSubTab === 'drones' && (
+              <div className="card-panel">
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+                  <h2 className="card-title" style={{margin: 0}}>🛸 Quản lý Danh sách Đội thiết bị bay</h2>
+                  <button className="btn btn-primary" style={{width: 'auto'}} onClick={() => openDroneModal('add')}>
+                    ➕ Thêm Drone Mới
+                  </button>
+                </div>
+                
+                <div className="table-wrapper" style={{maxHeight: '500px'}}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Drone ID</th>
+                        <th>Mẫu Thiết Bị</th>
+                        <th>Kích Cỡ</th>
+                        <th>Hãng SX</th>
+                        <th>Số Cánh</th>
+                        <th>Tải Trọng Max</th>
+                        <th>Pin</th>
+                        <th>Vị Trí Hiện Tại</th>
+                        <th>Trạng Thái</th>
+                        <th>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drones.map((d) => (
+                        <tr key={d.Drone_ID}>
+                          <td><strong>{d.Drone_ID}</strong></td>
+                          <td>{d.drone_model}</td>
+                          <td>{d.drone_size}</td>
+                          <td>{d.manufacturer}</td>
+                          <td>{d.propeller_count} cánh</td>
+                          <td>{d.max_carry_weight} kg</td>
+                          <td>{d.Battery_Level}%</td>
+                          <td>X: {d.Current_X} | Y: {d.Current_Y}</td>
+                          <td>{d.Status}</td>
+                          <td>
+                            <div style={{display: 'flex', gap: '0.5rem'}}>
+                              <button className="btn btn-secondary" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => openDroneModal('edit', d)}>Sửa</button>
+                              <button className="btn btn-outline-danger" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => handleDeleteDrone(d.Drone_ID)}>Xóa</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Sub Tab 3: Orders CRUD */}
+            {configSubTab === 'orders' && (
+              <div className="card-panel">
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+                  <h2 className="card-title" style={{margin: 0}}>📋 Quản lý Hàng đợi Đơn hàng</h2>
+                  <button className="btn btn-primary" style={{width: 'auto'}} onClick={() => openOrderModal('add')}>
+                    ➕ Tạo Đơn Hàng Mới
+                  </button>
+                </div>
+
+                <div className="table-wrapper" style={{maxHeight: '500px'}}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Mã Đơn hàng</th>
+                        <th>Tọa độ X</th>
+                        <th>Tọa độ Y</th>
+                        <th>Trọng lượng</th>
+                        <th>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((o) => (
+                        <tr key={o.Order_ID}>
+                          <td><strong>{o.Order_ID}</strong></td>
+                          <td>{o.Customer_X}</td>
+                          <td>{o.Customer_Y}</td>
+                          <td>{(o.Total_Weight_Gram / 1000).toFixed(2)} kg ({o.Total_Weight_Gram}g)</td>
+                          <td>
+                            <div style={{display: 'flex', gap: '0.5rem'}}>
+                              <button className="btn btn-secondary" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => openOrderModal('edit', o)}>Sửa</button>
+                              <button className="btn btn-outline-danger" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => handleDeleteOrder(o.Order_ID)}>Xóa</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ======================================= */}
+        {/* MODAL: ADD / EDIT DRONE                 */}
+        {/* ======================================= */}
+        {isDroneModalOpen && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2 style={{marginBottom: '1rem'}}>{droneModalMode === 'add' ? '➕ Thêm Drone Mới' : '🔧 Sửa thông tin Drone'}</h2>
+              <form onSubmit={handleSubmitDrone}>
+                <div className="form-group">
+                  <label>Mã Drone ID:</label>
+                  <input 
+                    type="text" 
+                    value={droneFormId} 
+                    onChange={(e) => setDroneFormId(e.target.value)} 
+                    disabled={droneModalMode === 'edit'} 
+                    required 
+                    placeholder="Ví dụ: D015, D016..."
+                  />
+                </div>
+                <div className="row">
+                  <div className="col form-group">
+                    <label>Mẫu thiết bị (Model):</label>
+                    <input type="text" value={droneFormModel} onChange={(e) => setDroneFormModel(e.target.value)} required />
+                  </div>
+                  <div className="col form-group">
+                    <label>Kích cỡ (Size):</label>
+                    <select value={droneFormSize} onChange={(e) => setDroneFormSize(e.target.value)}>
+                      <option value="Small">Small</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Large">Large</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="row">
+                  <div className="col form-group">
+                    <label>Hãng sản xuất:</label>
+                    <input type="text" value={droneFormManufacturer} onChange={(e) => setDroneFormManufacturer(e.target.value)} required />
+                  </div>
+                  <div className="col form-group">
+                    <label>Số cánh quạt:</label>
+                    <input type="number" value={droneFormPropellers} onChange={(e) => setDroneFormPropellers(e.target.value)} min="4" max="12" required />
+                  </div>
+                </div>
+                <div className="row">
+                  <div className="col form-group">
+                    <label>Tải trọng tối đa (kg):</label>
+                    <input type="number" step="0.1" value={droneFormMaxCarry} onChange={(e) => setDroneFormMaxCarry(e.target.value)} min="0.1" required />
+                  </div>
+                  <div className="col form-group">
+                    <label>Dung lượng Pin (%):</label>
+                    <input type="number" value={droneFormBattery} onChange={(e) => setDroneFormBattery(e.target.value)} min="0" max="100" required />
+                  </div>
+                </div>
+                <div className="row">
+                  <div className="col form-group">
+                    <label>Vĩ độ hiện tại X:</label>
+                    <input type="number" step="0.0001" value={droneFormX} onChange={(e) => setDroneFormX(e.target.value)} required />
+                  </div>
+                  <div className="col form-group">
+                    <label>Kinh độ hiện tại Y:</label>
+                    <input type="number" step="0.0001" value={droneFormY} onChange={(e) => setDroneFormY(e.target.value)} required />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Trạng thái (Status):</label>
+                  <select value={droneFormStatus} onChange={(e) => setDroneFormStatus(e.target.value)}>
+                    <option value="Ready">Ready</option>
+                    <option value="Busy">Busy</option>
+                  </select>
+                </div>
+                <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
+                  <button type="submit" className="btn btn-primary" style={{width: '50%'}}>Lưu lại</button>
+                  <button type="button" className="btn btn-secondary" style={{width: '50%'}} onClick={() => setIsDroneModalOpen(false)}>Hủy</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ======================================= */}
+        {/* MODAL: ADD / EDIT ORDER                 */}
+        {/* ======================================= */}
+        {isOrderModalOpen && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2 style={{marginBottom: '1rem'}}>{orderModalMode === 'add' ? '➕ Tạo Đơn Hàng Mới' : '🔧 Sửa Đơn Hàng'}</h2>
+              <form onSubmit={handleSubmitOrder}>
+                {orderModalMode === 'add' && (
+                  <div className="form-group">
+                    <label>Mã Đơn hàng (Tùy chọn):</label>
+                    <input 
+                      type="text" 
+                      value={orderFormId} 
+                      onChange={(e) => setOrderFormId(e.target.value)} 
+                      placeholder="Ví dụ: ORD-099 (tự sinh nếu để trống)"
+                    />
+                  </div>
+                )}
+                <div className="form-group">
+                  <label>Trọng lượng đơn hàng (Gram):</label>
+                  <input 
+                    type="number" 
+                    value={orderFormWeight} 
+                    onChange={(e) => setOrderFormWeight(e.target.value)} 
+                    min="100" 
+                    required 
+                  />
+                </div>
+                
+                <div className="form-group" style={{position: 'relative'}}>
+                  <label>Tìm kiếm địa chỉ bản đồ:</label>
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <input 
+                      type="text" 
+                      placeholder="Nhập địa chỉ..." 
+                      value={orderFormAddressQuery}
+                      onChange={(e) => setOrderFormAddressQuery(e.target.value)}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      style={{width: 'auto', padding: '0 1.5rem'}}
+                      onClick={() => handleSearchOrderFormAddress(orderFormAddressQuery)}
+                      disabled={searchingOrderFormAddress}
+                    >
+                      {searchingOrderFormAddress ? <div className="spinner"></div> : 'Tìm 🔍'}
+                    </button>
+                  </div>
+                  {orderFormAddressSuggestions.length > 0 && (
+                    <ul className="suggestions-list">
+                      {orderFormAddressSuggestions.map((s, index) => (
+                        <li 
+                          key={index} 
+                          onClick={() => handleSelectOrderFormSuggestion(s)}
+                          style={{listStyleType: 'none'}}
+                        >
+                          📍 {s.display_name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {orderFormX && orderFormY && (
+                  <div style={{
+                    marginTop: '1rem',
+                    marginBottom: '1.5rem',
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(0, 242, 254, 0.05)',
+                    border: '1px solid rgba(0, 242, 254, 0.15)',
+                    borderRadius: '10px',
+                    fontSize: '0.9rem',
+                    color: 'var(--color-accent)'
+                  }}>
+                    📍 Tọa độ chọn: X: {orderFormX} | Y: {orderFormY}
+                  </div>
+                )}
+
+                <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
+                  <button type="submit" className="btn btn-primary" style={{width: '50%'}}>Xác nhận</button>
+                  <button type="button" className="btn btn-secondary" style={{width: '50%'}} onClick={() => setIsOrderModalOpen(false)}>Hủy</button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 

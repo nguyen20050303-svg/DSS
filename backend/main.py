@@ -3,6 +3,7 @@ import joblib
 import pandas as pd
 import numpy as np
 import requests
+import json
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 from contextlib import contextmanager
@@ -24,10 +25,36 @@ app.add_middleware(
 
 DB_URI = "postgresql://postgres.qhqynnxpeyhnjtiyifsi:DSS301_Project@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "logistic_model.pkl")
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 
-WAREHOUSE_X = 10.8411
-WAREHOUSE_Y = 106.8102
-MIN_BATTERY_LEVEL = 30
+def load_config():
+    default_config = {
+        "warehouse_x": 10.8411,
+        "warehouse_y": 106.8102,
+        "min_battery_level": 30
+    }
+    if not os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(default_config, f, indent=4)
+        except Exception as e:
+            print(f"Error writing default config: {e}")
+        return default_config
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading config: {e}")
+        return default_config
+
+def save_config(config_data):
+    try:
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config_data, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving config: {e}")
+        return False
 
 # Initialize connection pool
 try:
@@ -106,6 +133,43 @@ class DroneRecommendation(BaseModel):
     Suc_Tai_Max: str
     Trang_Thai_AI: str
 
+class ConfigUpdate(BaseModel):
+    warehouse_x: float
+    warehouse_y: float
+    min_battery_level: int
+
+class RiskAnalysisResponse(BaseModel):
+    status: str
+    recommendations: List[DroneRecommendation]
+
+class DroneCreate(BaseModel):
+    drone_id: str
+    drone_model: str
+    drone_size: str
+    manufacturer: str
+    propeller_count: int
+    max_carry_weight: float
+    current_x: float
+    current_y: float
+    battery_level: int
+    status: str
+
+class DroneUpdate(BaseModel):
+    drone_model: str
+    drone_size: str
+    manufacturer: str
+    propeller_count: int
+    max_carry_weight: float
+    current_x: float
+    current_y: float
+    battery_level: int
+    status: str
+
+class OrderUpdate(BaseModel):
+    Customer_X: float
+    Customer_Y: float
+    Total_Weight_Gram: float
+
 # Endpoints
 @app.get("/api/orders", response_model=List[OrderResponse])
 def get_orders():
@@ -141,6 +205,39 @@ def create_order(order: OrderCreate):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi tạo đơn hàng: {e}")
+
+@app.put("/api/orders/{order_id}")
+def update_order(order_id: str, order: OrderUpdate):
+    try:
+        with db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE fact_orders SET customer_x = %s, customer_y = %s, total_weight_gram = %s WHERE order_id = %s",
+                (order.Customer_X, order.Customer_Y, order.Total_Weight_Gram, order_id)
+            )
+            conn.commit()
+            rows_updated = cur.rowcount
+            cur.close()
+        if rows_updated == 0:
+            raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng để sửa.")
+        return {"message": "Đã cập nhật đơn hàng thành công."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật đơn hàng: {e}")
+
+@app.delete("/api/orders/{order_id}")
+def delete_order(order_id: str):
+    try:
+        with db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM fact_orders WHERE order_id = %s", (order_id,))
+            conn.commit()
+            rows_deleted = cur.rowcount
+            cur.close()
+        if rows_deleted == 0:
+            raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng để xóa.")
+        return {"message": "Đã xóa đơn hàng thành công."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xóa đơn hàng: {e}")
 
 @app.get("/api/drones", response_model=List[DroneResponse])
 def get_drones():
@@ -202,9 +299,102 @@ def update_status(drone_id: str, status: str = Body(..., embed=True)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật trạng thái: {e}")
 
+@app.post("/api/drones")
+def create_drone(drone: DroneCreate):
+    try:
+        with db_connection() as conn:
+            cur = conn.cursor()
+            # 1. Insert specs
+            cur.execute(
+                """
+                INSERT INTO dim_drones (drone_id, drone_model, drone_size, manufacturer, propeller_count, max_carry_weight)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (drone.drone_id, drone.drone_model, drone.drone_size, drone.manufacturer, drone.propeller_count, drone.max_carry_weight)
+            )
+            # 2. Insert status
+            cur.execute(
+                """
+                INSERT INTO fact_drone_status (drone_id, current_x, current_y, battery_level, status)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (drone.drone_id, drone.current_x, drone.current_y, drone.battery_level, drone.status)
+            )
+            conn.commit()
+            cur.close()
+        return {"message": "Đã thêm drone mới thành công.", "drone_id": drone.drone_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi thêm drone: {e}")
+
+@app.put("/api/drones/{drone_id}")
+def update_drone(drone_id: str, drone: DroneUpdate):
+    try:
+        with db_connection() as conn:
+            cur = conn.cursor()
+            # 1. Update specs
+            cur.execute(
+                """
+                UPDATE dim_drones 
+                SET drone_model = %s, drone_size = %s, manufacturer = %s, propeller_count = %s, max_carry_weight = %s
+                WHERE drone_id = %s
+                """,
+                (drone.drone_model, drone.drone_size, drone.manufacturer, drone.propeller_count, drone.max_carry_weight, drone_id)
+            )
+            # 2. Update status
+            cur.execute(
+                """
+                UPDATE fact_drone_status 
+                SET current_x = %s, current_y = %s, battery_level = %s, status = %s
+                WHERE drone_id = %s
+                """,
+                (drone.current_x, drone.current_y, drone.battery_level, drone.status, drone_id)
+            )
+            conn.commit()
+            rows_updated = cur.rowcount
+            cur.close()
+        if rows_updated == 0:
+            raise HTTPException(status_code=404, detail="Không tìm thấy drone để cập nhật.")
+        return {"message": "Đã cập nhật drone thành công."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật drone: {e}")
+
+@app.delete("/api/drones/{drone_id}")
+def delete_drone(drone_id: str):
+    try:
+        with db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM dim_drones WHERE drone_id = %s", (drone_id,))
+            conn.commit()
+            rows_deleted = cur.rowcount
+            cur.close()
+        if rows_deleted == 0:
+            raise HTTPException(status_code=404, detail="Không tìm thấy drone để xóa.")
+        return {"message": "Đã xóa drone thành công."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xóa drone: {e}")
+
+@app.get("/api/config")
+def get_config_endpoint():
+    return load_config()
+
+@app.post("/api/config")
+def update_config_endpoint(config: ConfigUpdate):
+    config_dict = {
+        "warehouse_x": config.warehouse_x,
+        "warehouse_y": config.warehouse_y,
+        "min_battery_level": config.min_battery_level
+    }
+    if save_config(config_dict):
+        return {"message": "Cấu hình đã được lưu thành công.", "config": config_dict}
+    else:
+        raise HTTPException(status_code=500, detail="Không thể lưu tệp cấu hình.")
+
 @app.get("/api/weather/wind")
 def get_weather():
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={WAREHOUSE_X}&longitude={WAREHOUSE_Y}&current=wind_speed_10m,weather_code,precipitation"
+    config = load_config()
+    wh_x = config.get("warehouse_x", 10.8411)
+    wh_y = config.get("warehouse_y", 106.8102)
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={wh_x}&longitude={wh_y}&current=wind_speed_10m,weather_code,precipitation"
     try:
         response = requests.get(url, timeout=3)
         data = response.json()
@@ -227,7 +417,7 @@ def get_weather():
             "is_live": False
         }
 
-@app.post("/api/analyze-risk", response_model=List[DroneRecommendation])
+@app.post("/api/analyze-risk", response_model=RiskAnalysisResponse)
 def analyze_risk(payload: RiskAnalysisRequest):
     global pipeline_model
     if pipeline_model is None:
@@ -269,9 +459,13 @@ def analyze_risk(payload: RiskAnalysisRequest):
         df_drones['propeller_count'] = df_drones['propeller_count'].fillna(4).astype(int)
         df_drones['max_carry_weight'] = df_drones['max_carry_weight'].fillna(5.0)
 
-        # Determine warehouse coord
+        # Determine warehouse coord and battery threshold from config
+        config = load_config()
+        min_batt = config.get("min_battery_level", 30)
+
         if cust_x_val < 90.0:
-            wh_x, wh_y = WAREHOUSE_X, WAREHOUSE_Y
+            wh_x = config.get("warehouse_x", 10.8411)
+            wh_y = config.get("warehouse_y", 106.8102)
         else:
             try:
                 wh_x = float(df_drones['current_x'].iloc[0])
@@ -285,12 +479,21 @@ def analyze_risk(payload: RiskAnalysisRequest):
         wind_data = get_weather()
         live_wind = wind_data["wind_speed"]
 
-        # Filters: Ready, Battery >= 30, Carry Capacity >= Weight
-        valid_drones = df_drones[
-            (df_drones['status'] == 'Ready') & 
-            (df_drones['battery_level'] >= MIN_BATTERY_LEVEL) & 
-            (df_drones['max_carry_weight'] >= weight_kg)
-        ].copy()
+        # Check if there are any ready drones at all
+        ready_drones = df_drones[df_drones['status'] == 'Ready']
+        if ready_drones.empty:
+            return {"status": "no_ready_drones", "recommendations": []}
+
+        # Check if any ready drones meet the battery and weight requirements
+        matching_drones = ready_drones[
+            (ready_drones['battery_level'] >= min_batt) & 
+            (ready_drones['max_carry_weight'] >= weight_kg)
+        ]
+        if matching_drones.empty:
+            return {"status": "no_drones_match_criteria", "recommendations": []}
+
+        # Filters: Ready, Battery >= min_batt, Carry Capacity >= Weight
+        valid_drones = matching_drones.copy()
 
         approved_list = []
         if not valid_drones.empty:
@@ -321,6 +524,9 @@ def analyze_risk(payload: RiskAnalysisRequest):
                         "Trang_Thai_AI": "Completed 🟢 (An Toàn)"
                     })
 
-        return approved_list
+        if not approved_list:
+            return {"status": "all_rejected_by_ai", "recommendations": []}
+
+        return {"status": "success", "recommendations": approved_list}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi thực hiện phân tích rủi ro: {e}")

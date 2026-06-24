@@ -694,6 +694,9 @@ def analyze_risk(payload: RiskAnalysisRequest):
                 "propeller_count": int(drone['propeller_count'])
             })
 
+        # Sort recommendations: Is_Approved descending (True first), Risk_Score ascending (lower risk first)
+        approved_list.sort(key=lambda x: (not x["Is_Approved"], x["Risk_Score"]))
+
         return {"status": "success", "recommendations": approved_list}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi thực hiện phân tích rủi ro: {e}")

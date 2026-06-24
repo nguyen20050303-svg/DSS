@@ -605,6 +605,8 @@ function App() {
           const approved = data.recommendations.filter(r => r.Is_Approved);
           if (approved.length > 0) {
             setSelectedDroneId(approved[0].Drone_ID);
+          } else if (data.recommendations && data.recommendations.length > 0) {
+            setSelectedDroneId(data.recommendations[0].Drone_ID);
           } else {
             setSelectedDroneId('');
           }
@@ -1122,16 +1124,18 @@ function App() {
                     <h4 style={{color: 'var(--color-warning)', fontWeight: 'bold'}}>⚠️ KHÔNG CÓ THIẾT BỊ SẴN SÀNG:</h4>
                     <p style={{color: '#fff'}}>Hiện tại toàn bộ đội bay đang bận (Busy) hoặc bảo trì. Không tìm thấy thiết bị nào ở trạng thái <strong>Ready</strong> để cất cánh.</p>
                   </div>
-                ) : riskResults.recommendations && riskResults.recommendations.filter(r => r.Is_Approved).length === 0 ? (
-                  <div className="alert alert-danger" style={{margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-danger)'}}>
-                    <h4 style={{color: 'var(--color-danger)', fontWeight: 'bold'}}>🔴 CẢNH BÁO BẢO AN AN TOÀN BAY:</h4>
-                    <p style={{color: '#fff'}}>Bộ não AI dự báo tất cả các phương án cất cánh đều gặp nguy hiểm dưới sức gió hiện tại! Khuyến nghị chuyển sang vận tải mặt đất.</p>
-                  </div>
                 ) : (
                   <div>
-                    <div className="alert alert-success" style={{marginBottom: '1.5rem'}}>
-                      ✔ Tìm thấy danh sách các thiết bị đủ điều kiện an toàn bay dưới bối cảnh nhiễu động hiện tại:
-                    </div>
+                    {riskResults.recommendations && riskResults.recommendations.filter(r => r.Is_Approved).length === 0 ? (
+                      <div className="alert alert-danger" style={{margin: '0 0 1.5rem 0', flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-danger)'}}>
+                        <h4 style={{color: 'var(--color-danger)', fontWeight: 'bold', marginBottom: '0.25rem'}}>🔴 CẢNH BÁO BẢO AN AN TOÀN BAY:</h4>
+                        <p style={{color: '#fff', fontSize: '0.9rem', marginBottom: 0}}>Bộ não AI dự báo tất cả các phương án cất cánh đều gặp nguy hiểm dưới sức gió hiện tại! Khuyến nghị chuyển sang vận tải mặt đất.</p>
+                      </div>
+                    ) : (
+                      <div className="alert alert-success" style={{marginBottom: '1.5rem'}}>
+                        ✔ Tìm thấy danh sách các thiết bị đủ điều kiện an toàn bay dưới bối cảnh nhiễu động hiện tại:
+                      </div>
+                    )}
 
                     <div className="table-wrapper">
                       <table>
@@ -1142,10 +1146,11 @@ function App() {
                             <th>Sức Tải Max</th>
                             <th>Sử Dụng Tải</th>
                             <th>Điểm Rủi Ro</th>
+                            <th>Khuyến nghị từ AI</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {riskResults.recommendations && riskResults.recommendations.filter(r => r.Is_Approved).map((rec) => (
+                          {riskResults.recommendations && riskResults.recommendations.map((rec) => (
                             <tr 
                               key={rec.Drone_ID}
                               className={`clickable-row ${selectedDroneId === rec.Drone_ID ? 'selected-row' : ''}`}
@@ -1167,6 +1172,14 @@ function App() {
                                   {rec.Risk_Score}
                                 </span>
                               </td>
+                              <td>
+                                <span style={{
+                                  fontWeight: 'bold',
+                                  color: rec.Is_Approved ? 'var(--color-success)' : 'var(--color-danger)'
+                                }}>
+                                  {rec.Trang_Thai_AI}
+                                </span>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1186,28 +1199,54 @@ function App() {
                       alignItems: 'center'
                     }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Drone phê duyệt cất cánh:</span>
-                      <span style={{ fontWeight: 'bold', color: selectedDroneId ? 'var(--color-success)' : 'var(--text-muted)' }}>
-                        {selectedDroneId ? selectedDroneId : '(Chưa chọn drone)'}
+                      <span style={{ 
+                        fontWeight: 'bold', 
+                        color: selectedDroneId 
+                          ? (riskResults.recommendations.find(r => r.Drone_ID === selectedDroneId)?.Is_Approved 
+                            ? 'var(--color-success)' 
+                            : 'var(--color-danger)') 
+                          : 'var(--text-muted)' 
+                      }}>
+                        {selectedDroneId 
+                          ? `${selectedDroneId} (${riskResults.recommendations.find(r => r.Drone_ID === selectedDroneId)?.Is_Approved ? 'Khả thi' : 'Không khả thi'})` 
+                          : '(Chưa chọn drone)'}
                       </span>
                     </div>
 
-                    <button 
-                      onClick={handleDispatch}
-                      className="btn btn-primary"
-                      style={isExtremeWeather ? {
-                        background: '#374151',
-                        color: '#9ca3af',
-                        cursor: 'not-allowed',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        boxShadow: 'none'
-                      } : {
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)'
-                      }}
-                      disabled={isExtremeWeather}
-                    >
-                      {isExtremeWeather ? '🔒 ĐÃ KHÓA CẤT CÁNH (DO THỜI TIẾT XẤU)' : 'PHÁT LỆNH CẤT CÁNH (CONFIRM DISPATCH)'}
-                    </button>
+                    {(() => {
+                      const selectedRec = selectedDroneId ? riskResults.recommendations.find(r => r.Drone_ID === selectedDroneId) : null;
+                      const isRisky = selectedRec ? !selectedRec.Is_Approved : false;
+                      const isDisabled = isExtremeWeather || !selectedDroneId || isRisky;
+                      
+                      let btnLabel = 'PHÁT LỆNH CẤT CÁNH (CONFIRM DISPATCH)';
+                      if (isExtremeWeather) {
+                        btnLabel = '🔒 ĐÃ KHÓA CẤT CÁNH (DO THỜI TIẾT XẤU)';
+                      } else if (isRisky) {
+                        btnLabel = '🔒 AI KHUYẾN NGHỊ KHÔNG CHO CẤT CÁNH';
+                      } else if (!selectedDroneId) {
+                        btnLabel = 'VUI LÒNG CHỌN DRONE KHẢ THI';
+                      }
+                      
+                      return (
+                        <button 
+                          onClick={handleDispatch}
+                          className="btn btn-primary"
+                          style={isDisabled ? {
+                            background: '#374151',
+                            color: '#9ca3af',
+                            cursor: 'not-allowed',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            boxShadow: 'none'
+                          } : {
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)'
+                          }}
+                          disabled={isDisabled}
+                        >
+                          {btnLabel}
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

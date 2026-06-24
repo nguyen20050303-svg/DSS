@@ -4,7 +4,7 @@ const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dispatch'); // 'orders', 'dispatch', or 'config'
-  
+
   // Data State
   const [orders, setOrders] = useState([]);
   const [drones, setDrones] = useState([]);
@@ -12,7 +12,7 @@ function App() {
   const [weatherCode, setWeatherCode] = useState(0);
   const [precipitation, setPrecipitation] = useState(0.0);
   const [isLiveWind, setIsLiveWind] = useState(false);
-  
+
   // Interactive UI State
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
@@ -21,11 +21,14 @@ function App() {
   const [dispatchSuccess, setDispatchSuccess] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [notification, setNotification] = useState('');
+  const [modalError, setModalError] = useState('');
+  const [gpsAccuracy, setGpsAccuracy] = useState(2.1);
+  const [lastUpdatedTime, setLastUpdatedTime] = useState(new Date().toLocaleTimeString());
 
   // Loading States
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingDrones, setLoadingDrones] = useState(false);
-  
+
   // Form State (New Order)
   const [formWeight, setFormWeight] = useState(1500);
   const [formCustX, setFormCustX] = useState('');
@@ -36,6 +39,7 @@ function App() {
   const [configWarehouseY, setConfigWarehouseY] = useState(106.8102);
   const [configMinBattery, setConfigMinBattery] = useState(30);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [warehouseAddress, setWarehouseAddress] = useState('');
 
   // Address Geocoding State
   const [addressSearchQuery, setAddressSearchQuery] = useState('');
@@ -76,27 +80,33 @@ function App() {
   const [searchingOrderFormAddress, setSearchingOrderFormAddress] = useState(false);
 
   // Fetch Orders Queue
-  const fetchOrders = async () => {
-    setLoadingOrders(true);
+  const fetchOrders = async (silent = false) => {
+    if (!silent) setLoadingOrders(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/orders`);
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
-        if (data.length > 0 && !selectedOrderId) {
-          setSelectedOrderId(data[0].Order_ID);
+        const pendingOrders = data.filter(o => o.Status === 'Pending' || !o.Status);
+        if (pendingOrders.length > 0) {
+          const isStillPending = pendingOrders.some(o => o.Order_ID === selectedOrderId);
+          if (!selectedOrderId || !isStillPending) {
+            setSelectedOrderId(pendingOrders[0].Order_ID);
+          }
+        } else {
+          setSelectedOrderId('');
         }
       }
     } catch (err) {
       console.error("Lỗi khi fetch orders:", err);
     } finally {
-      setLoadingOrders(false);
+      if (!silent) setLoadingOrders(false);
     }
   };
 
   // Fetch Drones Fleet
-  const fetchDrones = async () => {
-    setLoadingDrones(true);
+  const fetchDrones = async (silent = false) => {
+    if (!silent) setLoadingDrones(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/drones`);
       if (res.ok) {
@@ -106,7 +116,7 @@ function App() {
     } catch (err) {
       console.error("Lỗi khi fetch drones:", err);
     } finally {
-      setLoadingDrones(false);
+      if (!silent) setLoadingDrones(false);
     }
   };
 
@@ -120,6 +130,9 @@ function App() {
         setWeatherCode(data.weather_code || 0);
         setPrecipitation(data.precipitation || 0.0);
         setIsLiveWind(data.is_live);
+        if (data.warehouse_address) {
+          setWarehouseAddress(data.warehouse_address);
+        }
       }
     } catch (err) {
       console.error("Lỗi khi fetch wind:", err);
@@ -137,6 +150,10 @@ function App() {
         setConfigWarehouseX(data.warehouse_x);
         setConfigWarehouseY(data.warehouse_y);
         setConfigMinBattery(data.min_battery_level);
+        if (data.warehouse_address) {
+          setWarehouseAddress(data.warehouse_address);
+          setConfigAddressQuery(data.warehouse_address);
+        }
       }
     } catch (err) {
       console.error("Lỗi khi fetch config:", err);
@@ -152,6 +169,25 @@ function App() {
     fetchWind();
     fetchConfig();
   }, [activeTab]);
+
+  // Polling for real-time tracking if there is a busy drone
+  useEffect(() => {
+    if (activeTab !== 'dispatch') return;
+
+    const timer = setInterval(() => {
+      // Simulate live GPS fluctuation around 2.1m (+/- 0.2m)
+      setGpsAccuracy(parseFloat((2.1 + (Math.random() - 0.5) * 0.4).toFixed(1)));
+      setLastUpdatedTime(new Date().toLocaleTimeString());
+
+      const hasBusy = drones.some(d => d.Status === 'Busy');
+      if (hasBusy) {
+        fetchDrones(true);
+        fetchOrders(true);
+      }
+    }, 1500);
+
+    return () => clearInterval(timer);
+  }, [activeTab, drones]);
 
   // Handle Address Geocoding Search (OpenStreetMap Nominatim)
   const handleSearchAddress = async (query) => {
@@ -234,6 +270,7 @@ function App() {
   // Open Drone Modal
   const openDroneModal = (mode, drone = null) => {
     setDroneModalMode(mode);
+    setModalError('');
     if (mode === 'edit' && drone) {
       setDroneFormId(drone.drone_id);
       setDroneFormModel(drone.drone_model);
@@ -252,8 +289,8 @@ function App() {
       setDroneFormManufacturer('');
       setDroneFormPropellers(4);
       setDroneFormMaxCarry(5.0);
-      setDroneFormX(10.8411);
-      setDroneFormY(106.8102);
+      setDroneFormX(configWarehouseX);
+      setDroneFormY(configWarehouseY);
       setDroneFormBattery(100);
       setDroneFormStatus('Ready');
     }
@@ -263,9 +300,9 @@ function App() {
   // Submit Drone Form (Add/Edit)
   const handleSubmitDrone = async (e) => {
     e.preventDefault();
-    setErrorMsg('');
+    setModalError('');
     setNotification('');
-    
+
     const payload = {
       drone_id: droneFormId,
       drone_model: droneFormModel,
@@ -301,10 +338,10 @@ function App() {
         fetchDrones();
       } else {
         const errorData = await res.json();
-        setErrorMsg(errorData.detail || 'Lỗi khi gửi yêu cầu lưu thông tin drone.');
+        setModalError(errorData.detail || 'Lỗi khi gửi yêu cầu lưu thông tin drone.');
       }
     } catch (err) {
-      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+      setModalError('Không thể kết nối đến máy chủ backend.');
     }
   };
 
@@ -328,9 +365,34 @@ function App() {
     }
   };
 
+  // Charge Drone (Set Status to Charging)
+  const handleChargeDrone = async (droneId) => {
+    setErrorMsg('');
+    setNotification('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/drones/${droneId}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'Charging' })
+      });
+      if (res.ok) {
+        setNotification(`🎉 Đã chuyển Drone ${droneId} sang trạng thái Sạc thành công!`);
+        fetchDrones(true);
+      } else {
+        const errorData = await res.json();
+        setErrorMsg(`Lỗi khi sạc drone: ${errorData.detail}`);
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+    }
+  };
+
   // Open Order Modal
   const openOrderModal = (mode, order = null) => {
     setOrderModalMode(mode);
+    setModalError('');
     setOrderFormAddressSuggestions([]);
     setOrderFormAddressQuery('');
     if (mode === 'edit' && order) {
@@ -338,11 +400,13 @@ function App() {
       setOrderFormWeight(order.Total_Weight_Gram);
       setOrderFormX(order.Customer_X);
       setOrderFormY(order.Customer_Y);
+      setOrderFormAddressQuery(order.customer_address || '');
     } else {
       setOrderFormId('');
       setOrderFormWeight(1500);
       setOrderFormX('');
       setOrderFormY('');
+      setOrderFormAddressQuery('');
     }
     setIsOrderModalOpen(true);
   };
@@ -388,11 +452,11 @@ function App() {
   // Submit Order Form (Add / Edit)
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
-    setErrorMsg('');
+    setModalError('');
     setNotification('');
 
     if (!orderFormX || !orderFormY) {
-      setErrorMsg('Vui lòng định vị địa chỉ trên bản đồ trước!');
+      setModalError('Vui lòng định vị địa chỉ trên bản đồ trước!');
       return;
     }
 
@@ -406,7 +470,8 @@ function App() {
             Order_ID: orderFormId || undefined,
             Customer_X: parseFloat(orderFormX),
             Customer_Y: parseFloat(orderFormY),
-            Total_Weight_Gram: parseFloat(orderFormWeight)
+            Total_Weight_Gram: parseFloat(orderFormWeight),
+            customer_address: orderFormAddressQuery
           })
         });
       } else {
@@ -416,7 +481,8 @@ function App() {
           body: JSON.stringify({
             Customer_X: parseFloat(orderFormX),
             Customer_Y: parseFloat(orderFormY),
-            Total_Weight_Gram: parseFloat(orderFormWeight)
+            Total_Weight_Gram: parseFloat(orderFormWeight),
+            customer_address: orderFormAddressQuery
           })
         });
       }
@@ -426,10 +492,10 @@ function App() {
         setIsOrderModalOpen(false);
         fetchOrders();
       } else {
-        setErrorMsg('Lỗi khi lưu thông tin đơn hàng lên server.');
+        setModalError('Lỗi khi lưu thông tin đơn hàng lên server.');
       }
     } catch (err) {
-      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+      setModalError('Không thể kết nối đến máy chủ backend.');
     }
   };
 
@@ -463,7 +529,7 @@ function App() {
       setErrorMsg('Vui lòng tìm kiếm và chọn một địa chỉ cụ thể trên bản đồ gợi ý để lấy tọa độ giao hàng!');
       return;
     }
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
@@ -471,10 +537,11 @@ function App() {
         body: JSON.stringify({
           Customer_X: parseFloat(formCustX),
           Customer_Y: parseFloat(formCustY),
-          Total_Weight_Gram: parseFloat(formWeight)
+          Total_Weight_Gram: parseFloat(formWeight),
+          customer_address: addressSearchQuery
         })
       });
-      
+
       if (res.ok) {
         const newOrder = await res.json();
         setNotification(`🎉 Đặt hàng thành công! Mã đơn hàng của bạn là: ${newOrder.Order_ID} (Đã lưu database).`);
@@ -517,24 +584,32 @@ function App() {
       setErrorMsg('Vui lòng chọn một đơn hàng để phân tích.');
       return;
     }
-    
+
     setAnalyzing(true);
     setErrorMsg('');
     setRiskResults(null);
+    setSelectedDroneId('');
     setDispatchSuccess(null);
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/analyze-risk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order_id: selectedOrderId })
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         setRiskResults(data);
-        if (data.status === 'success' && data.recommendations.length > 0) {
-          setSelectedDroneId(data.recommendations[0].Drone_ID);
+        if (data.status === 'success') {
+          const approved = data.recommendations.filter(r => r.Is_Approved);
+          if (approved.length > 0) {
+            setSelectedDroneId(approved[0].Drone_ID);
+          } else if (data.recommendations && data.recommendations.length > 0) {
+            setSelectedDroneId(data.recommendations[0].Drone_ID);
+          } else {
+            setSelectedDroneId('');
+          }
         } else {
           setSelectedDroneId('');
         }
@@ -555,14 +630,14 @@ function App() {
     if (!selectedDroneId || !selectedOrderId) return;
     setErrorMsg('');
     setNotification('');
-    
+
     try {
-      const res = await fetch(`${API_BASE_URL}/api/drones/${selectedDroneId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/orders/${selectedOrderId}/dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'Busy' })
+        body: JSON.stringify({ drone_id: selectedDroneId })
       });
-      
+
       if (res.ok) {
         setDispatchSuccess({ drone: selectedDroneId, order: selectedOrderId });
         setRiskResults(null);
@@ -570,6 +645,28 @@ function App() {
         fetchOrders();
       } else {
         setErrorMsg('Lỗi khi gửi lệnh điều phối bay.');
+      }
+    } catch (err) {
+      setErrorMsg('Không thể kết nối đến máy chủ backend.');
+    }
+  };
+
+  // Handle Mark Delivery Complete / Failed
+  const handleCompleteOrder = async (orderId, droneId, status) => {
+    setErrorMsg('');
+    setNotification('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, drone_id: droneId })
+      });
+      if (res.ok) {
+        setNotification(status === 'Success' ? `🎉 Đơn hàng ${orderId} đã giao thành công!` : `⚠️ Đã ghi nhận đơn hàng ${orderId} giao thất bại.`);
+        fetchOrders();
+        fetchDrones();
+      } else {
+        setErrorMsg('Lỗi khi cập nhật kết quả giao hàng.');
       }
     } catch (err) {
       setErrorMsg('Không thể kết nối đến máy chủ backend.');
@@ -588,7 +685,7 @@ function App() {
       setSavingConfig(false);
       return;
     }
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/config`, {
         method: 'POST',
@@ -596,10 +693,11 @@ function App() {
         body: JSON.stringify({
           warehouse_x: parseFloat(configWarehouseX),
           warehouse_y: parseFloat(configWarehouseY),
-          min_battery_level: parseInt(configMinBattery)
+          min_battery_level: parseInt(configMinBattery),
+          warehouse_address: configAddressQuery || warehouseAddress
         })
       });
-      
+
       if (res.ok) {
         setNotification('🎉 Đã cập nhật và lưu cấu hình hệ thống thành công!');
         setConfigAddressQuery('');
@@ -653,21 +751,21 @@ function App() {
           <span className="sidebar-logo">🛸</span>
           <span className="sidebar-title">UAV DSS System</span>
         </div>
-        
+
         <ul className="menu-list">
-          <li 
+          <li
             className={`menu-item ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
             🛒 Khách Hàng Đặt Đơn
           </li>
-          <li 
+          <li
             className={`menu-item ${activeTab === 'dispatch' ? 'active' : ''}`}
             onClick={() => setActiveTab('dispatch')}
           >
             🎛️ Trung Tâm Điều Phối
           </li>
-          <li 
+          <li
             className={`menu-item ${activeTab === 'config' ? 'active' : ''}`}
             onClick={() => setActiveTab('config')}
           >
@@ -678,12 +776,12 @@ function App() {
 
       {/* Main Panel Content */}
       <main className="main-content">
-        
+
         {/* Global Notifications/Alerts */}
         {notification && (
           <div className="alert alert-success success-banner">
             <div>{notification}</div>
-            <button style={{background:'none', border:'none', color:'inherit', cursor:'pointer', float:'right'}} onClick={() => setNotification('')}>✕</button>
+            <button style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', float: 'right' }} onClick={() => setNotification('')}>✕</button>
           </div>
         )}
         {errorMsg && (
@@ -699,16 +797,16 @@ function App() {
           <div>
             <h1>🛒 Cổng Thông Tin Đặt Hàng Chặng Cuối</h1>
             <p className="subtitle">Khách hàng nhập bưu kiện và vị trí để lưu thông tin vào cơ sở dữ liệu logistics Supabase.</p>
-            
-            <div className="card-panel" style={{maxWidth: '650px', margin: '0 auto'}}>
+
+            <div className="card-panel" style={{ maxWidth: '650px', margin: '0 auto' }}>
               <h2 className="card-title">📝 Đăng ký đơn hàng mới</h2>
               <form onSubmit={handlePlaceOrder}>
                 <div className="form-group">
                   <label>Trọng lượng bưu kiện (Gram):</label>
-                  <input 
-                    type="number" 
-                    min="100" 
-                    max="25000" 
+                  <input
+                    type="number"
+                    min="100"
+                    max="25000"
                     value={formWeight}
                     onChange={(e) => setFormWeight(e.target.value)}
                     required
@@ -716,19 +814,19 @@ function App() {
                   <div className="form-hint">Ví dụ: 1500 Gram = 1.5 kg (Tải trọng giới hạn 0.1kg - 25kg)</div>
                 </div>
 
-                <div className="form-group" style={{position: 'relative'}}>
+                <div className="form-group" style={{ position: 'relative' }}>
                   <label>Địa chỉ giao hàng (Tìm kiếm bản đồ):</label>
-                  <div style={{display: 'flex', gap: '0.5rem'}}>
-                    <input 
-                      type="text" 
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      type="text"
                       placeholder="Nhập địa chỉ giao hàng (Ví dụ: Khu công nghệ cao Quận 9, HCM...)"
                       value={addressSearchQuery}
                       onChange={(e) => setAddressSearchQuery(e.target.value)}
                     />
-                    <button 
-                      type="button" 
-                      className="btn btn-secondary" 
-                      style={{width: 'auto', padding: '0 1.5rem'}}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '0 1.5rem' }}
                       onClick={() => handleSearchAddress(addressSearchQuery)}
                       disabled={searchingAddress}
                     >
@@ -738,10 +836,10 @@ function App() {
                   {addressSuggestions.length > 0 && (
                     <ul className="suggestions-list">
                       {addressSuggestions.map((s, index) => (
-                        <li 
+                        <li
                           key={index}
                           onClick={() => handleSelectSuggestion(s)}
-                          style={{listStyleType: 'none'}}
+                          style={{ listStyleType: 'none' }}
                         >
                           📍 {s.display_name}
                         </li>
@@ -771,7 +869,7 @@ function App() {
                   </div>
                 )}
 
-                <button type="submit" className="btn btn-primary" style={{marginTop: '1rem'}}>
+                <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>
                   Xác Nhận Đặt Hàng
                 </button>
               </form>
@@ -787,16 +885,8 @@ function App() {
             <div className="header-actions">
               <div>
                 <h1>🎛️ Màn Hình Kiểm Soát Không Lưu & Điều Phối</h1>
-                <p className="subtitle" style={{marginBottom: 0}}>Hỗ trợ người điều phối quét rủi ro thời gian thực bằng Trí tuệ nhân tạo (scikit-learn Pipeline) trước khi duyệt cất cánh.</p>
+                <p className="subtitle" style={{ marginBottom: 0 }}>Hỗ trợ người điều phối quét rủi ro thời gian thực bằng Trí tuệ nhân tạo (scikit-learn Pipeline) trước khi duyệt cất cánh.</p>
               </div>
-              <button 
-                onClick={handleResetDrones} 
-                className="btn btn-secondary" 
-                style={{width: 'auto'}}
-                title="Đặt lại trạng thái Ready cho toàn bộ đội bay"
-              >
-                🔄 Cho Tất Cả Drone Rảnh Lại
-              </button>
             </div>
 
             {/* Top KPI Metrics Dashboard */}
@@ -812,20 +902,102 @@ function App() {
                 <div className="kpi-detail">{readyCount} chiếc rảnh trên tổng số {drones.length}</div>
               </div>
               <div className="kpi-card">
-                <div className="kpi-title">Thời tiết & Gió</div>
-                <div className="kpi-value" style={{ fontSize: '1.6rem', marginTop: '0.2rem' }}>
-                  {liveWind} m/s | {getWeatherDescription(weatherCode)}
+                <div className="kpi-title">Vị trí Kho hàng Trung tâm</div>
+                <div className="kpi-value" style={{
+                  fontSize: '1.05rem',
+                  lineHeight: '1.4',
+                  fontWeight: '600',
+                  marginTop: '0.25rem',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  height: '3.1rem'
+                }} title={warehouseAddress}>
+                  {warehouseAddress || 'Đang xác định kho...'}
                 </div>
-                <div className="kpi-detail">
-                  {precipitation > 0 ? `Lượng mưa: ${precipitation} mm | ` : ''}
-                  {isLiveWind ? 'Open-Meteo API (Live)' : 'Dự phòng'}
+                <div className="kpi-detail" style={{ fontSize: '0.85rem', color: 'var(--color-accent)', marginTop: '0.5rem' }}>
+                  📍 Tọa độ: X: {configWarehouseX} | Y: {configWarehouseY}
+                </div>
+              </div>
+            </div>
+
+            {/* Uncertainty Input Context Panel */}
+            <div className="card-panel" style={{
+              marginBottom: '2rem',
+              padding: '1.25rem 2rem',
+              background: 'linear-gradient(135deg, rgba(22, 33, 54, 0.8) 0%, rgba(10, 14, 26, 0.9) 100%)',
+              border: '1px solid rgba(0, 242, 254, 0.25)',
+              boxShadow: '0 0 15px rgba(0, 242, 254, 0.1)',
+            }}>
+              <h3 style={{
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: 'var(--color-accent)',
+                marginBottom: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                🌀 BỐI CẢNH KHÍ TƯỢNG & ĐỘ BẤT ĐỊNH THỜI GIAN THỰC (UNCERTAINTY INPUT CONTEXT)
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1.5rem',
+                alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>💨</span>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>TỐC ĐỘ GIÓ ĐỘNG</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{liveWind} m/s</div>
+                    <div style={{ fontSize: '0.7rem', color: isLiveWind ? 'var(--color-success)' : 'var(--color-warning)' }}>
+                      {isLiveWind ? '● Open-Meteo API (Live)' : '● Dự phòng (Offline)'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>📡</span>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>SAI SỐ GPS (ACCURACY)</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{gpsAccuracy}m</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-success)' }}>● Tín hiệu tốt (HDOP: 1.1)</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>🌧️</span>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>LƯỢNG MƯA HIỆN TẠI</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{precipitation} mm</div>
+                    <div style={{ fontSize: '0.7rem', color: precipitation > 0 ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                      {precipitation > 0 ? '● Có mưa nhẹ' : '● Không mưa'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>MỨC ĐỘ BẤT ĐỊNH</div>
+                    <div style={{
+                      fontSize: '1.1rem',
+                      fontWeight: 'bold',
+                      color: isExtremeWeather ? 'var(--color-danger)' : (liveWind > 5 || precipitation > 1) ? 'var(--color-warning)' : 'var(--color-success)'
+                    }}>
+                      {isExtremeWeather ? 'CỰC KỲ CAO (CẤM BAY)' : (liveWind > 5 || precipitation > 1) ? 'TRUNG BÌNH (CẨN TRỌNG)' : 'THẤP (AN TOÀN)'}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Cập nhật: {lastUpdatedTime}</div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Dispatcher Actions Feedback */}
             {dispatchSuccess && (
-              <div className="alert alert-success success-banner" style={{marginBottom: '2rem'}}>
+              <div className="alert alert-success success-banner" style={{ marginBottom: '2rem' }}>
                 <div>
                   ✈ <strong>Đã duyệt bay!</strong> Đã gửi lệnh điều khiển bay thời gian thực cho Drone <strong>{dispatchSuccess.drone}</strong> thực thi nhiệm vụ giao đơn hàng <strong>{dispatchSuccess.order}</strong> thành công! Trạng thái của Drone đã chuyển sang <strong>Busy</strong>.
                 </div>
@@ -833,7 +1005,7 @@ function App() {
             )}
 
             {!isLiveWind && (
-              <div className="alert alert-warning" style={{marginBottom: '2rem'}}>
+              <div className="alert alert-warning" style={{ marginBottom: '2rem' }}>
                 ⚠ CẢNH BÁO: Hệ thống không thể kết nối tới API thời tiết Open-Meteo. Đang tự động áp dụng tốc độ gió dự phòng là <strong>3.5 m/s</strong> để thực hiện phân tích rủi ro động.
               </div>
             )}
@@ -852,36 +1024,51 @@ function App() {
 
             {/* Split Panels: Queue & AI Recommendations */}
             <div className="grid-2col">
-              
+
               {/* Left Column: Queue List */}
               <div className="card-panel">
-                <h3 className="card-title">📋 Hàng đợi đơn hàng chờ xử lý</h3>
-                
+                <h3 className="card-title">📋 Hàng đợi phân tích đơn hàng chờ xử lý</h3>
+
                 <div className="table-wrapper">
                   {loadingOrders ? (
-                    <div style={{padding: '2rem', display: 'flex', justifyContent: 'center'}}><div className="spinner"></div></div>
+                    <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><div className="spinner"></div></div>
                   ) : (
                     <table>
                       <thead>
                         <tr>
                           <th>Mã Đơn</th>
-                          <th>Toạ độ X</th>
-                          <th>Toạ độ Y</th>
-                          <th>Trọng lượng</th>
+                          <th>Khối lượng</th>
+                          <th>Địa chỉ giao hàng</th>
+                          <th>Khoảng cách</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {orders.length === 0 ? (
+                        {orders.filter(o => o.Status === 'Pending' || !o.Status).length === 0 ? (
                           <tr>
-                            <td colSpan="4" style={{textAlign: 'center', color: 'var(--text-muted)'}}>Không có đơn hàng nào trong hàng đợi.</td>
+                            <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Không có đơn hàng nào chờ xử lý.</td>
                           </tr>
                         ) : (
-                          orders.map((o) => (
-                            <tr key={o.Order_ID}>
+                          orders.filter(o => o.Status === 'Pending' || !o.Status).map((o) => (
+                            <tr
+                              key={o.Order_ID}
+                              className={`clickable-row ${selectedOrderId === o.Order_ID ? 'selected-row' : ''}`}
+                              onClick={() => {
+                                setSelectedOrderId(o.Order_ID);
+                                setRiskResults(null);
+                                setSelectedDroneId('');
+                              }}
+                            >
                               <td><strong>{o.Order_ID}</strong></td>
-                              <td>{o.Customer_X}</td>
-                              <td>{o.Customer_Y}</td>
                               <td>{(o.Total_Weight_Gram / 1000).toFixed(2)} kg</td>
+                              <td>
+                                <div style={{ fontWeight: '500', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={o.customer_address || 'Chưa xác định'}>
+                                  {o.customer_address || 'Chưa xác định'}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                                  ({o.Customer_X}, {o.Customer_Y})
+                                </div>
+                              </td>
+                              <td>{o.distance_km !== null && o.distance_km !== undefined ? `${o.distance_km} km` : '---'}</td>
                             </tr>
                           ))
                         )}
@@ -890,31 +1077,32 @@ function App() {
                   )}
                 </div>
 
-                <div className="form-group" style={{marginTop: '1.5rem'}}>
-                  <label>Chọn mã đơn hàng cần kiểm tra:</label>
-                  <select 
-                    value={selectedOrderId} 
-                    onChange={(e) => {
-                      setSelectedOrderId(e.target.value);
-                      setRiskResults(null);
-                    }}
-                    disabled={orders.length === 0}
-                  >
-                    {orders.length === 0 && <option value="">(Không có đơn hàng)</option>}
-                    {orders.map(o => (
-                      <option key={o.Order_ID} value={o.Order_ID}>{o.Order_ID} ({(o.Total_Weight_Gram/1000).toFixed(2)} kg)</option>
-                    ))}
-                  </select>
+                <div style={{
+                  marginTop: '1.25rem',
+                  marginBottom: '1.25rem',
+                  padding: '0.85rem 1rem',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Đơn hàng đang chọn:</span>
+                  <span style={{ fontWeight: 'bold', color: selectedOrderId ? 'var(--color-accent)' : 'var(--text-muted)' }}>
+                    {selectedOrderId ? selectedOrderId : '(Chưa chọn đơn hàng)'}
+                  </span>
                 </div>
 
-                <button 
-                  onClick={handleAnalyzeRisk} 
+                <button
+                  onClick={handleAnalyzeRisk}
                   className="btn btn-primary"
-                  disabled={analyzing || orders.length === 0}
+                  disabled={analyzing || orders.filter(o => o.Status === 'Pending' || !o.Status).length === 0}
                 >
                   {analyzing ? (
                     <>
-                      <div className="spinner" style={{marginRight: '0.5rem'}}></div> Đang phân tích rủi ro...
+                      <div className="spinner" style={{ marginRight: '0.5rem' }}></div> Đang phân tích rủi ro...
                     </>
                   ) : '🚀 KÍCH HOẠT PHÂN TÍCH RỦI RO ĐỘNG'}
                 </button>
@@ -925,143 +1113,303 @@ function App() {
                 <h3 className="card-title">🤖 Khuyến nghị phương án an toàn từ AI</h3>
 
                 {riskResults === null ? (
-                  <div className="alert alert-info" style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: '3rem 2rem', textAlign: 'center'}}>
+                  <div className="alert alert-info" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: '3rem 2rem', textAlign: 'center' }}>
                     <div>
-                      <p style={{fontSize: '1.5rem', marginBottom: '0.5rem'}}>👈</p>
+                      <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>👈</p>
                       Vui lòng chọn một đơn hàng bên trái và click vào nút phân tích để kích hoạt mô hình AI.
                     </div>
                   </div>
                 ) : riskResults.status === 'no_ready_drones' ? (
-                  <div className="alert alert-warning" style={{margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-warning)'}}>
-                    <h4 style={{color: 'var(--color-warning)', fontWeight: 'bold'}}>⚠️ KHÔNG CÓ THIẾT BỊ SẴN SÀNG:</h4>
-                    <p style={{color: '#fff'}}>Hiện tại toàn bộ đội bay đang bận (Busy) hoặc bảo trì. Không tìm thấy thiết bị nào ở trạng thái <strong>Ready</strong> để cất cánh.</p>
-                  </div>
-                ) : riskResults.status === 'no_drones_match_criteria' ? (
-                  <div className="alert alert-warning" style={{margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-warning)'}}>
-                    <h4 style={{color: 'var(--color-warning)', fontWeight: 'bold'}}>⚠️ THIẾT BỊ KHÔNG ĐỦ TIÊU CHUẨN:</h4>
-                    <p style={{color: '#fff'}}>Tìm thấy thiết bị rảnh nhưng không có chiếc nào đáp ứng tiêu chuẩn tối thiểu về mức pin {"(>= " + configMinBattery + "%)"} hoặc tải trọng tối đa lớn hơn khối lượng đơn bưu kiện.</p>
-                  </div>
-                ) : riskResults.status === 'all_rejected_by_ai' ? (
-                  <div className="alert alert-danger" style={{margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-danger)'}}>
-                    <h4 style={{color: 'var(--color-danger)', fontWeight: 'bold'}}>🔴 CẢNH BÁO BẢO AN AN TOÀN BAY:</h4>
-                    <p style={{color: '#fff'}}>Bộ não AI dự báo tất cả các phương án cất cánh đều gặp nguy hiểm dưới sức gió hiện tại! Khuyến nghị chuyển sang vận tải mặt đất.</p>
+                  <div className="alert alert-warning" style={{ margin: 0, flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-warning)' }}>
+                    <h4 style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>⚠️ KHÔNG CÓ THIẾT BỊ SẴN SÀNG:</h4>
+                    <p style={{ color: '#fff' }}>Hiện tại toàn bộ đội bay đang bận (Busy) hoặc bảo trì. Không tìm thấy thiết bị nào ở trạng thái <strong>Ready</strong> để cất cánh.</p>
                   </div>
                 ) : (
                   <div>
-                    <div className="alert alert-success" style={{marginBottom: '1.5rem'}}>
-                      ✔ Tìm thấy danh sách các thiết bị đủ điều kiện an toàn bay dưới bối cảnh nhiễu động hiện tại:
-                    </div>
+                    {riskResults.recommendations && riskResults.recommendations.filter(r => r.Is_Approved).length === 0 ? (
+                      <div className="alert alert-danger" style={{ margin: '0 0 1.5rem 0', flexDirection: 'column', gap: '0.5rem', borderLeft: '4px solid var(--color-danger)' }}>
+                        <h4 style={{ color: 'var(--color-danger)', fontWeight: 'bold', marginBottom: '0.25rem' }}>🔴 CẢNH BÁO BẢO AN AN TOÀN BAY:</h4>
+                        <p style={{ color: '#fff', fontSize: '0.9rem', marginBottom: 0 }}>Bộ não AI dự báo tất cả các phương án cất cánh đều gặp nguy hiểm dưới sức gió hiện tại! Khuyến nghị chuyển sang vận tải mặt đất.</p>
+                      </div>
+                    ) : (
+                      <div className="alert alert-success" style={{ marginBottom: '1.5rem', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem', padding: '1rem 1.25rem' }}>
+                        <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span>ℹ️ HƯỚNG DẪN ĐỌC CHỈ SỐ PHÂN TÍCH:</span>
+                        </div>
+                        <ul style={{ margin: '0.25rem 0 0 1.25rem', padding: 0, fontSize: '0.85rem', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <li style={{ listStyleType: 'disc' }}><strong>Điểm Rủi Ro (Risk Score)</strong>: Điểm số động phản ánh nguy cơ sự cố bay, tính dựa trên sự tương tác giữa Sức gió động (12%), Tỷ lệ thực tải (40%) và Khoảng cách bay (5%).</li>
+                          <li style={{ listStyleType: 'disc' }}><strong>Thang điểm rủi ro:</strong>
+                            <span style={{ color: '#10b981', fontWeight: 'bold', marginLeft: '0.25rem' }}>&lt; 1.5: Thấp (An toàn) 🟢</span> |
+                            <span style={{ color: '#f59e0b', fontWeight: 'bold', marginLeft: '0.25rem' }}>1.5 - 3.0: Trung bình (Thận trọng) 🟡</span> |
+                            <span style={{ color: '#ef4444', fontWeight: 'bold', marginLeft: '0.25rem' }}>&gt; 3.0: Cao (Nguy hiểm) 🔴</span>.
+                          </li>
+                          <li style={{ listStyleType: 'disc' }}><strong>Tỉ lệ Thực Tải</strong>: Tỉ lệ khối lượng đơn hàng chiếm so với sức chở lớn nhất của drone (<code>Trọng lượng đơn / Tải trọng tối đa của drone</code>).</li>
+                        </ul>
+                      </div>
+                    )}
 
                     <div className="table-wrapper">
                       <table>
                         <thead>
                           <tr>
                             <th>Drone ID</th>
-                            <th>Mẫu Thiết Bị</th>
-                            <th>Dung lượng Pin</th>
-                            <th>Sức Tải tối đa</th>
+                            <th>Pin</th>
+                            <th>Số Cánh</th>
+                            <th>Sức Tải Tối Đa</th>
+                            <th>Tỉ lệ Thực Tải</th>
+                            <th>Điểm Rủi Ro</th>
+                            <th>Khuyến nghị từ AI</th>
                           </tr>
                         </thead>
                         <tbody>
                           {riskResults.recommendations && riskResults.recommendations.map((rec) => (
-                            <tr key={rec.Drone_ID}>
+                            <tr 
+                              key={rec.Drone_ID}
+                              className={`clickable-row ${selectedDroneId === rec.Drone_ID ? 'selected-row' : ''}`}
+                              onClick={() => setSelectedDroneId(rec.Drone_ID)}
+                            >
                               <td><strong>{rec.Drone_ID}</strong></td>
-                              <td>{rec.Model}</td>
                               <td>{rec.Pin_Hien_Tai}</td>
+                              <td>{rec.propeller_count} cánh</td>
                               <td>{rec.Suc_Tai_Max}</td>
+                              <td>
+                                <span style={{ fontWeight: '500', color: rec.Weight_Ratio > 85 ? 'var(--color-warning)' : 'var(--text-primary)' }}>
+                                  {rec.Weight_Ratio}%
+                                </span>
+                              </td>
+                              <td>
+                                <span style={{
+                                  fontWeight: 'bold',
+                                  color: rec.Risk_Score > 3.0 ? 'var(--color-danger)' : rec.Risk_Score > 1.5 ? 'var(--color-warning)' : 'var(--color-success)'
+                                }}>
+                                  {rec.Risk_Score}
+                                </span>
+                              </td>
+                              <td>
+                                <span style={{
+                                  fontWeight: 'bold',
+                                  color: rec.Is_Approved ? 'var(--color-success)' : 'var(--color-danger)'
+                                }}>
+                                  {rec.Trang_Thai_AI}
+                                </span>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
 
-                    <div className="form-group" style={{marginTop: '1.5rem'}}>
-                      <label>🎯 Chọn chiếc drone phê duyệt phát lệnh cất cánh:</label>
-                      <select 
-                        value={selectedDroneId} 
-                        onChange={(e) => setSelectedDroneId(e.target.value)}
-                      >
-                        {riskResults.recommendations && riskResults.recommendations.map(rec => (
-                          <option key={rec.Drone_ID} value={rec.Drone_ID}>
-                            {rec.Drone_ID} - {rec.Model} (Pin: {rec.Pin_Hien_Tai})
-                          </option>
-                        ))}
-                      </select>
+                    <div style={{
+                      marginTop: '1.25rem',
+                      marginBottom: '1.25rem',
+                      padding: '0.85rem 1rem',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      fontSize: '0.9rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Drone phê duyệt cất cánh:</span>
+                      <span style={{
+                        fontWeight: 'bold',
+                        color: selectedDroneId
+                          ? (riskResults.recommendations.find(r => r.Drone_ID === selectedDroneId)?.Is_Approved
+                            ? 'var(--color-success)'
+                            : 'var(--color-danger)')
+                          : 'var(--text-muted)'
+                      }}>
+                        {selectedDroneId
+                          ? `${selectedDroneId} (${riskResults.recommendations.find(r => r.Drone_ID === selectedDroneId)?.Is_Approved ? 'Khả thi' : 'Không khả thi'})`
+                          : '(Chưa chọn drone)'}
+                      </span>
                     </div>
 
-                    <button 
-                      onClick={handleDispatch}
-                      className="btn btn-primary"
-                      style={isExtremeWeather ? {
-                        background: '#374151',
-                        color: '#9ca3af',
-                        cursor: 'not-allowed',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        boxShadow: 'none'
-                      } : {
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)'
-                      }}
-                      disabled={isExtremeWeather}
-                    >
-                      {isExtremeWeather ? '🔒 ĐÃ KHÓA CẤT CÁNH (DO THỜI TIẾT XẤU)' : 'PHÁT LỆNH CẤT CÁNH (CONFIRM DISPATCH)'}
-                    </button>
+                    {(() => {
+                      const selectedRec = selectedDroneId ? riskResults.recommendations.find(r => r.Drone_ID === selectedDroneId) : null;
+                      const isRisky = selectedRec ? !selectedRec.Is_Approved : false;
+                      const isDisabled = isExtremeWeather || !selectedDroneId || isRisky;
+
+                      let btnLabel = 'PHÁT LỆNH CẤT CÁNH (CONFIRM DISPATCH)';
+                      if (isExtremeWeather) {
+                        btnLabel = '🔒 ĐÃ KHÓA CẤT CÁNH (DO THỜI TIẾT XẤU)';
+                      } else if (isRisky) {
+                        btnLabel = '🔒 AI KHUYẾN NGHỊ KHÔNG CHO CẤT CÁNH';
+                      } else if (!selectedDroneId) {
+                        btnLabel = 'VUI LÒNG CHỌN DRONE KHẢ THI';
+                      }
+
+                      return (
+                        <button
+                          onClick={handleDispatch}
+                          className="btn btn-primary"
+                          style={isDisabled ? {
+                            background: '#374151',
+                            color: '#9ca3af',
+                            cursor: 'not-allowed',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            boxShadow: 'none'
+                          } : {
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)'
+                          }}
+                          disabled={isDisabled}
+                        >
+                          {btnLabel}
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
 
             </div>
 
-            {/* Bottom Row: Drone Fleet List */}
-            <div className="card-panel" style={{marginTop: '2.5rem'}}>
-              <h3 className="card-title">🛸 Danh sách toàn bộ đội thiết bị bay (UAV Fleet)</h3>
-              
-              <div className="table-wrapper" style={{maxHeight: '600px'}}>
-                {loadingDrones ? (
-                  <div style={{padding: '2rem', display: 'flex', justifyContent: 'center'}}><div className="spinner"></div></div>
-                ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Drone ID</th>
-                        <th>Model</th>
-                        <th>Kích Cỡ</th>
-                        <th>Hãng Sản Xuất</th>
-                        <th>Số Cánh Quạt</th>
-                        <th>Tải Trọng Max</th>
-                        <th>Dung Lượng Pin</th>
-                        <th>Tọa Độ Hiện Tại</th>
-                        <th>Trạng Thái</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {drones.map((d) => {
-                        const isBatteryLow = d.Battery_Level < 30;
-                        const batteryColor = d.Battery_Level >= 70 ? 'var(--color-success)' : isBatteryLow ? 'var(--color-danger)' : 'var(--color-warning)';
-                        
-                        return (
-                          <tr key={d.Drone_ID}>
-                            <td><strong>{d.Drone_ID}</strong></td>
-                            <td>{d.drone_model}</td>
-                            <td>{d.drone_size}</td>
-                            <td>{d.manufacturer}</td>
-                            <td>{d.propeller_count} cánh</td>
-                            <td>{d.max_carry_weight} kg</td>
-                            <td style={{ color: batteryColor, fontWeight: 'bold' }}>
-                              {d.Battery_Level}%
-                            </td>
-                            <td>X: {d.Current_X} | Y: {d.Current_Y}</td>
-                            <td>
-                              <span className={`status-badge ${d.Status.toLowerCase() === 'ready' ? 'status-ready' : 'status-busy'}`}>
-                                {d.Status}
-                              </span>
-                            </td>
+
+
+            {/* Bottom Row: Drones Split Tables */}
+            <div style={{ marginTop: '2.5rem' }}>
+              <h3 className="card-title" style={{ marginBottom: '1.25rem' }}>🛸 Giám sát trạng thái đội UAV (UAV Fleet Monitoring)</h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+
+                {/* 1. Drone đang rảnh */}
+                <div className="card-panel" style={{ margin: 0 }}>
+                  <h4 className="card-title" style={{ fontSize: '1.1rem', color: 'var(--color-success)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🟢 Drone đang rảnh (Ready)</span>
+                    <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>({drones.filter(d => d.Status === 'Ready').length})</span>
+                  </h4>
+                  <div className="table-wrapper" style={{ maxHeight: '350px' }}>
+                    {loadingDrones ? (
+                      <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><div className="spinner"></div></div>
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Drone ID</th>
+                            <th>Model</th>
+                            <th>Pin</th>
+                            <th>Sức Tải</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
+                        </thead>
+                        <tbody>
+                          {drones.filter(d => d.Status === 'Ready').length === 0 ? (
+                            <tr>
+                              <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Không có drone nào rảnh.</td>
+                            </tr>
+                          ) : (
+                            drones.filter(d => d.Status === 'Ready').map((d) => (
+                              <tr key={d.Drone_ID}>
+                                <td><strong>{d.Drone_ID}</strong></td>
+                                <td>{d.drone_model}</td>
+                                <td style={{ fontWeight: 'bold', color: d.Battery_Level >= 70 ? 'var(--color-success)' : d.Battery_Level < 30 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
+                                  {d.Battery_Level}%
+                                </td>
+                                <td>{d.max_carry_weight} kg</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Drone đang bận */}
+                <div className="card-panel" style={{ margin: 0 }}>
+                  <h4 className="card-title" style={{ fontSize: '1.1rem', color: 'var(--color-accent)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🔵 Drone đang bận (Busy)</span>
+                    <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>({drones.filter(d => d.Status === 'Busy').length})</span>
+                  </h4>
+                  <div className="table-wrapper" style={{ maxHeight: '350px' }}>
+                    {loadingDrones ? (
+                      <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><div className="spinner"></div></div>
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Drone ID</th>
+                            <th>Model</th>
+                            <th>Pin</th>
+                            <th>Vị trí (X, Y)</th>
+                            <th>Đơn hàng</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {drones.filter(d => d.Status === 'Busy').length === 0 ? (
+                            <tr>
+                              <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Không có drone nào đang bận.</td>
+                            </tr>
+                          ) : (
+                            drones.filter(d => d.Status === 'Busy').map((d) => (
+                              <tr key={d.Drone_ID}>
+                                <td><strong>{d.Drone_ID}</strong></td>
+                                <td>{d.drone_model}</td>
+                                <td style={{ fontWeight: 'bold', color: d.Battery_Level >= 70 ? 'var(--color-success)' : d.Battery_Level < 30 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
+                                  {d.Battery_Level}%
+                                </td>
+                                <td>{d.Current_X}, {d.Current_Y}</td>
+                                <td>
+                                  {d.assigned_order_id ? (
+                                    <span className="badge badge-busy" style={{ background: 'rgba(0, 242, 254, 0.15)', color: 'var(--color-accent)', borderColor: 'rgba(0, 242, 254, 0.2)' }}>
+                                      {d.assigned_order_id}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: 'var(--text-muted)' }}>---</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Drone đang sạc / Khác */}
+                <div className="card-panel" style={{ margin: 0 }}>
+                  <h4 className="card-title" style={{ fontSize: '1.1rem', color: 'var(--color-warning)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>⚡ Drone đang sạc / Bảo trì</span>
+                    <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>({drones.filter(d => d.Status !== 'Ready' && d.Status !== 'Busy').length})</span>
+                  </h4>
+                  <div className="table-wrapper" style={{ maxHeight: '350px' }}>
+                    {loadingDrones ? (
+                      <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><div className="spinner"></div></div>
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Drone ID</th>
+                            <th>Model</th>
+                            <th>Pin</th>
+                            <th>Trạng Thái</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {drones.filter(d => d.Status !== 'Ready' && d.Status !== 'Busy').length === 0 ? (
+                            <tr>
+                              <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Không có drone nào đang sạc/bảo trì.</td>
+                            </tr>
+                          ) : (
+                            drones.filter(d => d.Status !== 'Ready' && d.Status !== 'Busy').map((d) => (
+                              <tr key={d.Drone_ID}>
+                                <td><strong>{d.Drone_ID}</strong></td>
+                                <td>{d.drone_model}</td>
+                                <td style={{ fontWeight: 'bold', color: d.Battery_Level >= 70 ? 'var(--color-success)' : d.Battery_Level < 30 ? 'var(--color-danger)' : 'var(--color-warning)' }}>
+                                  {d.Battery_Level}%
+                                </td>
+                                <td><span className="status-badge status-charging" style={{ background: '#f59e0b', color: '#1e1b4b' }}>{d.Status}</span></td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
@@ -1074,22 +1422,22 @@ function App() {
           <div>
             <h1>⚙️ Cấu Hình Hệ Thống</h1>
             <p className="subtitle">Điều chỉnh các thông số vận hành động, quản lý đội bay UAV và quản lý đơn hàng của hệ thống.</p>
-            
+
             {/* Sub Tabs Selection */}
             <div className="sub-tabs">
-              <div 
+              <div
                 className={`sub-tab-item ${configSubTab === 'general' ? 'active' : ''}`}
                 onClick={() => setConfigSubTab('general')}
               >
                 ⚙️ Vận hành chung
               </div>
-              <div 
+              <div
                 className={`sub-tab-item ${configSubTab === 'drones' ? 'active' : ''}`}
                 onClick={() => setConfigSubTab('drones')}
               >
                 🛸 Quản lý Đội bay UAV
               </div>
-              <div 
+              <div
                 className={`sub-tab-item ${configSubTab === 'orders' ? 'active' : ''}`}
                 onClick={() => setConfigSubTab('orders')}
               >
@@ -1099,26 +1447,26 @@ function App() {
 
             {/* Sub Tab 1: General Config */}
             {configSubTab === 'general' && (
-              <div className="card-panel" style={{maxWidth: '700px', margin: '0 auto'}}>
+              <div className="card-panel" style={{ maxWidth: '700px', margin: '0 auto' }}>
                 <h2 className="card-title">🔧 Cấu hình thông số động</h2>
-                
+
                 {fetchingConfig ? (
-                  <div style={{padding: '2rem', display: 'flex', justifyContent: 'center'}}><div className="spinner"></div></div>
+                  <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><div className="spinner"></div></div>
                 ) : (
                   <form onSubmit={handleSaveConfig}>
-                    <div className="form-group" style={{position: 'relative'}}>
+                    <div className="form-group" style={{ position: 'relative' }}>
                       <label>Vị trí Kho hàng trung tâm (Tìm kiếm bản đồ):</label>
-                      <div style={{display: 'flex', gap: '0.5rem'}}>
-                        <input 
-                          type="text" 
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input
+                          type="text"
                           placeholder="Nhập địa chỉ của kho hàng mới (Ví dụ: Khu công nghệ cao, Quận 9, HCM...)"
                           value={configAddressQuery}
                           onChange={(e) => setConfigAddressQuery(e.target.value)}
                         />
-                        <button 
-                          type="button" 
-                          className="btn btn-secondary" 
-                          style={{width: 'auto', padding: '0 1.5rem'}}
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ width: 'auto', padding: '0 1.5rem' }}
                           onClick={() => handleSearchConfigAddress(configAddressQuery)}
                           disabled={searchingConfigAddress}
                         >
@@ -1128,10 +1476,10 @@ function App() {
                       {configAddressSuggestions.length > 0 && (
                         <ul className="suggestions-list">
                           {configAddressSuggestions.map((s, index) => (
-                            <li 
+                            <li
                               key={index}
                               onClick={() => handleSelectConfigSuggestion(s)}
-                              style={{listStyleType: 'none'}}
+                              style={{ listStyleType: 'none' }}
                             >
                               📍 {s.display_name}
                             </li>
@@ -1163,10 +1511,10 @@ function App() {
 
                     <div className="form-group">
                       <label>Mức pin tối thiểu để cất cánh (%):</label>
-                      <input 
-                        type="number" 
-                        min="10" 
-                        max="90" 
+                      <input
+                        type="number"
+                        min="10"
+                        max="90"
                         value={configMinBattery}
                         onChange={(e) => setConfigMinBattery(e.target.value)}
                         required
@@ -1174,17 +1522,17 @@ function App() {
                       <div className="form-hint">Drones có mức pin thấp hơn mức này sẽ không được đề xuất bay (Mặc định: 30%)</div>
                     </div>
 
-                    <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                       <button type="submit" className="btn btn-primary" disabled={savingConfig}>
                         {savingConfig ? (
                           <>
-                            <div className="spinner" style={{marginRight: '0.5rem'}}></div> Đang lưu...
+                            <div className="spinner" style={{ marginRight: '0.5rem' }}></div> Đang lưu...
                           </>
                         ) : '💾 Lưu Cấu Hình'}
                       </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-secondary" 
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
                         onClick={() => {
                           setConfigWarehouseX(10.8411);
                           setConfigWarehouseY(106.8102);
@@ -1205,14 +1553,14 @@ function App() {
             {/* Sub Tab 2: Drones CRUD */}
             {configSubTab === 'drones' && (
               <div className="card-panel">
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
-                  <h2 className="card-title" style={{margin: 0}}>🛸 Quản lý Danh sách Đội thiết bị bay</h2>
-                  <button className="btn btn-primary" style={{width: 'auto'}} onClick={() => openDroneModal('add')}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2 className="card-title" style={{ margin: 0 }}>🛸 Quản lý Danh sách Đội thiết bị bay</h2>
+                  <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => openDroneModal('add')}>
                     ➕ Thêm Drone Mới
                   </button>
                 </div>
-                
-                <div className="table-wrapper" style={{maxHeight: '500px'}}>
+
+                <div className="table-wrapper" style={{ maxHeight: '500px' }}>
                   <table>
                     <thead>
                       <tr>
@@ -1241,9 +1589,12 @@ function App() {
                           <td>X: {d.Current_X} | Y: {d.Current_Y}</td>
                           <td>{d.Status}</td>
                           <td>
-                            <div style={{display: 'flex', gap: '0.5rem'}}>
-                              <button className="btn btn-secondary" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => openDroneModal('edit', d)}>Sửa</button>
-                              <button className="btn btn-outline-danger" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => handleDeleteDrone(d.Drone_ID)}>Xóa</button>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto' }} onClick={() => openDroneModal('edit', d)}>Sửa</button>
+                              <button className="btn btn-outline-danger" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto' }} onClick={() => handleDeleteDrone(d.Drone_ID)}>Xóa</button>
+                              {d.Status !== 'Charging' && d.Status !== 'Busy' && (
+                                <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }} onClick={() => handleChargeDrone(d.Drone_ID)}>⚡ Sạc</button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1257,20 +1608,20 @@ function App() {
             {/* Sub Tab 3: Orders CRUD */}
             {configSubTab === 'orders' && (
               <div className="card-panel">
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
-                  <h2 className="card-title" style={{margin: 0}}>📋 Quản lý Hàng đợi Đơn hàng</h2>
-                  <button className="btn btn-primary" style={{width: 'auto'}} onClick={() => openOrderModal('add')}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2 className="card-title" style={{ margin: 0 }}>📋 Quản lý Hàng đợi Đơn hàng</h2>
+                  <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => openOrderModal('add')}>
                     ➕ Tạo Đơn Hàng Mới
                   </button>
                 </div>
 
-                <div className="table-wrapper" style={{maxHeight: '500px'}}>
+                <div className="table-wrapper" style={{ maxHeight: '500px' }}>
                   <table>
                     <thead>
                       <tr>
                         <th>Mã Đơn hàng</th>
-                        <th>Tọa độ X</th>
-                        <th>Tọa độ Y</th>
+                        <th>Địa chỉ giao hàng</th>
+                        <th>Khoảng cách</th>
                         <th>Trọng lượng</th>
                         <th>Hành động</th>
                       </tr>
@@ -1279,13 +1630,20 @@ function App() {
                       {orders.map((o) => (
                         <tr key={o.Order_ID}>
                           <td><strong>{o.Order_ID}</strong></td>
-                          <td>{o.Customer_X}</td>
-                          <td>{o.Customer_Y}</td>
+                          <td>
+                            <div style={{ fontWeight: '500', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={o.customer_address || 'Chưa xác định'}>
+                              {o.customer_address || 'Chưa xác định'}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                              ({o.Customer_X}, {o.Customer_Y})
+                            </div>
+                          </td>
+                          <td>{o.distance_km !== null && o.distance_km !== undefined ? `${o.distance_km} km` : '---'}</td>
                           <td>{(o.Total_Weight_Gram / 1000).toFixed(2)} kg ({o.Total_Weight_Gram}g)</td>
                           <td>
-                            <div style={{display: 'flex', gap: '0.5rem'}}>
-                              <button className="btn btn-secondary" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => openOrderModal('edit', o)}>Sửa</button>
-                              <button className="btn btn-outline-danger" style={{padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto'}} onClick={() => handleDeleteOrder(o.Order_ID)}>Xóa</button>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto' }} onClick={() => openOrderModal('edit', o)}>Sửa</button>
+                              <button className="btn btn-outline-danger" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', width: 'auto' }} onClick={() => handleDeleteOrder(o.Order_ID)}>Xóa</button>
                             </div>
                           </td>
                         </tr>
@@ -1304,16 +1662,21 @@ function App() {
         {isDroneModalOpen && (
           <div className="modal-overlay">
             <div className="modal-content">
-              <h2 style={{marginBottom: '1rem'}}>{droneModalMode === 'add' ? '➕ Thêm Drone Mới' : '🔧 Sửa thông tin Drone'}</h2>
+              <h2 style={{ marginBottom: '1rem' }}>{droneModalMode === 'add' ? '➕ Thêm Drone Mới' : '🔧 Sửa thông tin Drone'}</h2>
+              {modalError && (
+                <div className="alert alert-danger" style={{ marginBottom: '1.25rem', padding: '0.75rem 1rem' }}>
+                  ⚠ {modalError}
+                </div>
+              )}
               <form onSubmit={handleSubmitDrone}>
                 <div className="form-group">
                   <label>Mã Drone ID:</label>
-                  <input 
-                    type="text" 
-                    value={droneFormId} 
-                    onChange={(e) => setDroneFormId(e.target.value)} 
-                    disabled={droneModalMode === 'edit'} 
-                    required 
+                  <input
+                    type="text"
+                    value={droneFormId}
+                    onChange={(e) => setDroneFormId(e.target.value)}
+                    disabled={droneModalMode === 'edit'}
+                    required
                     placeholder="Ví dụ: D015, D016..."
                   />
                 </div>
@@ -1351,26 +1714,18 @@ function App() {
                     <input type="number" value={droneFormBattery} onChange={(e) => setDroneFormBattery(e.target.value)} min="0" max="100" required />
                   </div>
                 </div>
-                <div className="row">
-                  <div className="col form-group">
-                    <label>Vĩ độ hiện tại X:</label>
-                    <input type="number" step="0.0001" value={droneFormX} onChange={(e) => setDroneFormX(e.target.value)} required />
-                  </div>
-                  <div className="col form-group">
-                    <label>Kinh độ hiện tại Y:</label>
-                    <input type="number" step="0.0001" value={droneFormY} onChange={(e) => setDroneFormY(e.target.value)} required />
-                  </div>
-                </div>
                 <div className="form-group">
                   <label>Trạng thái (Status):</label>
                   <select value={droneFormStatus} onChange={(e) => setDroneFormStatus(e.target.value)}>
                     <option value="Ready">Ready</option>
                     <option value="Busy">Busy</option>
+                    <option value="Charging">Charging</option>
+                    <option value="Maintenance">Maintenance</option>
                   </select>
                 </div>
-                <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
-                  <button type="submit" className="btn btn-primary" style={{width: '50%'}}>Lưu lại</button>
-                  <button type="button" className="btn btn-secondary" style={{width: '50%'}} onClick={() => setIsDroneModalOpen(false)}>Hủy</button>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                  <button type="submit" className="btn btn-primary" style={{ width: '50%' }}>Lưu lại</button>
+                  <button type="button" className="btn btn-secondary" style={{ width: '50%' }} onClick={() => setIsDroneModalOpen(false)}>Hủy</button>
                 </div>
               </form>
             </div>
@@ -1383,43 +1738,48 @@ function App() {
         {isOrderModalOpen && (
           <div className="modal-overlay">
             <div className="modal-content">
-              <h2 style={{marginBottom: '1rem'}}>{orderModalMode === 'add' ? '➕ Tạo Đơn Hàng Mới' : '🔧 Sửa Đơn Hàng'}</h2>
+              <h2 style={{ marginBottom: '1rem' }}>{orderModalMode === 'add' ? '➕ Tạo Đơn Hàng Mới' : '🔧 Sửa Đơn Hàng'}</h2>
+              {modalError && (
+                <div className="alert alert-danger" style={{ marginBottom: '1.25rem', padding: '0.75rem 1rem' }}>
+                  ⚠ {modalError}
+                </div>
+              )}
               <form onSubmit={handleSubmitOrder}>
                 {orderModalMode === 'add' && (
                   <div className="form-group">
                     <label>Mã Đơn hàng (Tùy chọn):</label>
-                    <input 
-                      type="text" 
-                      value={orderFormId} 
-                      onChange={(e) => setOrderFormId(e.target.value)} 
+                    <input
+                      type="text"
+                      value={orderFormId}
+                      onChange={(e) => setOrderFormId(e.target.value)}
                       placeholder="Ví dụ: ORD-099 (tự sinh nếu để trống)"
                     />
                   </div>
                 )}
                 <div className="form-group">
                   <label>Trọng lượng đơn hàng (Gram):</label>
-                  <input 
-                    type="number" 
-                    value={orderFormWeight} 
-                    onChange={(e) => setOrderFormWeight(e.target.value)} 
-                    min="100" 
-                    required 
+                  <input
+                    type="number"
+                    value={orderFormWeight}
+                    onChange={(e) => setOrderFormWeight(e.target.value)}
+                    min="100"
+                    required
                   />
                 </div>
-                
-                <div className="form-group" style={{position: 'relative'}}>
+
+                <div className="form-group" style={{ position: 'relative' }}>
                   <label>Tìm kiếm địa chỉ bản đồ:</label>
-                  <div style={{display: 'flex', gap: '0.5rem'}}>
-                    <input 
-                      type="text" 
-                      placeholder="Nhập địa chỉ..." 
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      type="text"
+                      placeholder="Nhập địa chỉ..."
                       value={orderFormAddressQuery}
                       onChange={(e) => setOrderFormAddressQuery(e.target.value)}
                     />
-                    <button 
-                      type="button" 
-                      className="btn btn-secondary" 
-                      style={{width: 'auto', padding: '0 1.5rem'}}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '0 1.5rem' }}
                       onClick={() => handleSearchOrderFormAddress(orderFormAddressQuery)}
                       disabled={searchingOrderFormAddress}
                     >
@@ -1429,10 +1789,10 @@ function App() {
                   {orderFormAddressSuggestions.length > 0 && (
                     <ul className="suggestions-list">
                       {orderFormAddressSuggestions.map((s, index) => (
-                        <li 
-                          key={index} 
+                        <li
+                          key={index}
                           onClick={() => handleSelectOrderFormSuggestion(s)}
-                          style={{listStyleType: 'none'}}
+                          style={{ listStyleType: 'none' }}
                         >
                           📍 {s.display_name}
                         </li>
@@ -1456,9 +1816,9 @@ function App() {
                   </div>
                 )}
 
-                <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
-                  <button type="submit" className="btn btn-primary" style={{width: '50%'}}>Xác nhận</button>
-                  <button type="button" className="btn btn-secondary" style={{width: '50%'}} onClick={() => setIsOrderModalOpen(false)}>Hủy</button>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                  <button type="submit" className="btn btn-primary" style={{ width: '50%' }}>Xác nhận</button>
+                  <button type="button" className="btn btn-secondary" style={{ width: '50%' }} onClick={() => setIsOrderModalOpen(false)}>Hủy</button>
                 </div>
               </form>
             </div>

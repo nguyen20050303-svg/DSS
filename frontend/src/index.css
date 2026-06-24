@@ -605,3 +605,34 @@ input:focus, select:focus {
   background: rgba(0, 242, 254, 0.1);
   font-weight: 600;
 }
+
+/* Clickable & Selected Table Rows */
+.clickable-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clickable-row:hover td {
+  background: rgba(0, 242, 254, 0.08) !important;
+}
+
+.selected-row td {
+  background: rgba(0, 242, 254, 0.15) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.selected-row td:first-child {
+  position: relative;
+}
+
+.selected-row td:first-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent);
+}

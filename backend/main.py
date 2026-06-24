@@ -5,9 +5,11 @@ import numpy as np
 import requests
 import json
 import psycopg2
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 from psycopg2.pool import SimpleConnectionPool
 from contextlib import contextmanager
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -25,36 +27,6 @@ app.add_middleware(
 
 DB_URI = "postgresql://postgres.qhqynnxpeyhnjtiyifsi:DSS301_Project@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "logistic_model.pkl")
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
-
-def load_config():
-    default_config = {
-        "warehouse_x": 10.8411,
-        "warehouse_y": 106.8102,
-        "min_battery_level": 30
-    }
-    if not os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, "w") as f:
-                json.dump(default_config, f, indent=4)
-        except Exception as e:
-            print(f"Error writing default config: {e}")
-        return default_config
-    try:
-        with open(CONFIG_PATH, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Error loading config: {e}")
-        return default_config
-
-def save_config(config_data):
-    try:
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(config_data, f, indent=4)
-        return True
-    except Exception as e:
-        print(f"Error saving config: {e}")
-        return False
 
 # Initialize connection pool
 try:
@@ -78,6 +50,55 @@ def db_connection():
     finally:
         db_pool.putconn(conn)
 
+def load_config():
+    default_config = {
+        "warehouse_x": 10.8411,
+        "warehouse_y": 106.8102,
+        "min_battery_level": 30,
+        "warehouse_address": "Khu công nghệ cao Quận 9, TP. Hồ Chí Minh"
+    }
+    try:
+        if db_pool is not None:
+            with db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT warehouse_x, warehouse_y, min_battery_level, warehouse_address FROM dim_system_config WHERE id = 1")
+                    row = cur.fetchone()
+                    if row:
+                        return {
+                            "warehouse_x": float(row[0]),
+                            "warehouse_y": float(row[1]),
+                            "min_battery_level": int(row[2]),
+                            "warehouse_address": str(row[3])
+                        }
+    except Exception as e:
+        print(f"Error loading config from database: {e}")
+    return default_config
+
+def save_config(config_data):
+    try:
+        if db_pool is not None:
+            with db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO dim_system_config (id, warehouse_x, warehouse_y, min_battery_level, warehouse_address)
+                        VALUES (1, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE 
+                        SET warehouse_x = EXCLUDED.warehouse_x,
+                            warehouse_y = EXCLUDED.warehouse_y,
+                            min_battery_level = EXCLUDED.min_battery_level,
+                            warehouse_address = EXCLUDED.warehouse_address
+                    """, (
+                        config_data["warehouse_x"],
+                        config_data["warehouse_y"],
+                        config_data["min_battery_level"],
+                        config_data["warehouse_address"]
+                    ))
+                    conn.commit()
+            return True
+    except Exception as e:
+        print(f"Error saving config to database: {e}")
+    return False
+
 # Load ML model
 pipeline_model = None
 if os.path.exists(MODEL_PATH):
@@ -97,18 +118,46 @@ def compute_km(x1: float, y1: float, x2: float, y2: float) -> float:
     else:
         return round(raw_dist * 0.03, 2)
 
+def simulate_drone_flight(drone_id: str, start_x: float, start_y: float, end_x: float, end_y: float):
+    import time
+    steps = 10
+    for i in range(1, steps + 1):
+        time.sleep(1)
+        current_x = start_x + (end_x - start_x) * (i / steps)
+        current_y = start_y + (end_y - start_y) * (i / steps)
+        try:
+            with db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT status FROM fact_drone_status WHERE drone_id = %s", (drone_id,))
+                    row = cur.fetchone()
+                    if not row or row[0] != 'Busy':
+                        break
+                    cur.execute(
+                        "UPDATE fact_drone_status SET current_x = %s, current_y = %s WHERE drone_id = %s",
+                        (current_x, current_y, drone_id)
+                    )
+                    conn.commit()
+        except Exception as e:
+            print(f"Error simulating flight for drone {drone_id}: {e}")
+            break
+
 # Pydantic Schemas
 class OrderCreate(BaseModel):
     Order_ID: Optional[str] = None
     Customer_X: float
     Customer_Y: float
     Total_Weight_Gram: float
+    customer_address: Optional[str] = None
 
 class OrderResponse(BaseModel):
     Order_ID: str
     Customer_X: float
     Customer_Y: float
     Total_Weight_Gram: float
+    Status: Optional[str] = "Pending"
+    Assigned_Drone_ID: Optional[str] = None
+    customer_address: Optional[str] = None
+    distance_km: Optional[float] = None
 
 class DroneResponse(BaseModel):
     Drone_ID: str
@@ -122,21 +171,33 @@ class DroneResponse(BaseModel):
     manufacturer: str
     propeller_count: int
     max_carry_weight: float
+    assigned_order_id: Optional[str] = None
 
 class RiskAnalysisRequest(BaseModel):
     order_id: str
 
 class DroneRecommendation(BaseModel):
     Drone_ID: str
-    Model: str
+    Model: Optional[str] = None
     Pin_Hien_Tai: str
     Suc_Tai_Max: str
     Trang_Thai_AI: str
+    Risk_Score: float
+    Weight_Ratio: float
+    Is_Approved: bool
 
 class ConfigUpdate(BaseModel):
     warehouse_x: float
     warehouse_y: float
     min_battery_level: int
+    warehouse_address: Optional[str] = None
+
+class OrderDispatch(BaseModel):
+    drone_id: str
+
+class OrderComplete(BaseModel):
+    status: str
+    drone_id: str
 
 class RiskAnalysisResponse(BaseModel):
     status: str
@@ -169,13 +230,22 @@ class OrderUpdate(BaseModel):
     Customer_X: float
     Customer_Y: float
     Total_Weight_Gram: float
+    customer_address: Optional[str] = None
 
 # Endpoints
 @app.get("/api/orders", response_model=List[OrderResponse])
 def get_orders():
     try:
+        config = load_config()
+        wh_x = config.get("warehouse_x", 10.8411)
+        wh_y = config.get("warehouse_y", 106.8102)
         with db_connection() as conn:
-            df = pd.read_sql("SELECT order_id AS \"Order_ID\", customer_x AS \"Customer_X\", customer_y AS \"Customer_Y\", total_weight_gram AS \"Total_Weight_Gram\" FROM fact_orders ORDER BY order_id", conn)
+            df = pd.read_sql("SELECT order_id AS \"Order_ID\", customer_x AS \"Customer_X\", customer_y AS \"Customer_Y\", total_weight_gram AS \"Total_Weight_Gram\", COALESCE(status, 'Pending') AS \"Status\", assigned_drone_id AS \"Assigned_Drone_ID\", customer_address AS \"customer_address\" FROM fact_orders ORDER BY order_id", conn)
+        
+        # Calculate distance dynamically
+        df['distance_km'] = df.apply(lambda row: compute_km(wh_x, wh_y, float(row['Customer_X']), float(row['Customer_Y'])), axis=1)
+        
+        df = df.astype(object).where(pd.notnull(df), None)
         return df.to_dict(orient="records")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi đọc đơn hàng: {e}")
@@ -192,16 +262,26 @@ def create_order(order: OrderCreate):
                 order_id = f"ORD-{count + 1:03d}"
                 
             cur.execute(
-                "INSERT INTO fact_orders (order_id, customer_x, customer_y, total_weight_gram) VALUES (%s, %s, %s, %s)",
-                (order_id, order.Customer_X, order.Customer_Y, order.Total_Weight_Gram)
+                "INSERT INTO fact_orders (order_id, customer_x, customer_y, total_weight_gram, status, customer_address) VALUES (%s, %s, %s, %s, 'Pending', %s)",
+                (order_id, order.Customer_X, order.Customer_Y, order.Total_Weight_Gram, order.customer_address)
             )
             conn.commit()
             cur.close()
+        
+        config = load_config()
+        wh_x = config.get("warehouse_x", 10.8411)
+        wh_y = config.get("warehouse_y", 106.8102)
+        dist_km = compute_km(wh_x, wh_y, order.Customer_X, order.Customer_Y)
+        
         return {
             "Order_ID": order_id,
             "Customer_X": order.Customer_X,
             "Customer_Y": order.Customer_Y,
-            "Total_Weight_Gram": order.Total_Weight_Gram
+            "Total_Weight_Gram": order.Total_Weight_Gram,
+            "Status": "Pending",
+            "Assigned_Drone_ID": None,
+            "customer_address": order.customer_address,
+            "distance_km": dist_km
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi tạo đơn hàng: {e}")
@@ -212,8 +292,8 @@ def update_order(order_id: str, order: OrderUpdate):
         with db_connection() as conn:
             cur = conn.cursor()
             cur.execute(
-                "UPDATE fact_orders SET customer_x = %s, customer_y = %s, total_weight_gram = %s WHERE order_id = %s",
-                (order.Customer_X, order.Customer_Y, order.Total_Weight_Gram, order_id)
+                "UPDATE fact_orders SET customer_x = %s, customer_y = %s, total_weight_gram = %s, customer_address = %s WHERE order_id = %s",
+                (order.Customer_X, order.Customer_Y, order.Total_Weight_Gram, order.customer_address, order_id)
             )
             conn.commit()
             rows_updated = cur.rowcount
@@ -239,6 +319,69 @@ def delete_order(order_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi xóa đơn hàng: {e}")
 
+@app.post("/api/orders/{order_id}/dispatch")
+def dispatch_order(order_id: str, payload: OrderDispatch, background_tasks: BackgroundTasks):
+    try:
+        start_x, start_y = 10.8411, 106.8102
+        end_x, end_y = 10.8411, 106.8102
+        
+        with db_connection() as conn:
+            cur = conn.cursor()
+            
+            # Fetch coordinates for tracking
+            cur.execute("SELECT customer_x, customer_y FROM fact_orders WHERE order_id = %s", (order_id,))
+            order_row = cur.fetchone()
+            if order_row:
+                end_x, end_y = float(order_row[0]), float(order_row[1])
+                
+            cur.execute("SELECT current_x, current_y FROM fact_drone_status WHERE drone_id = %s", (payload.drone_id,))
+            drone_row = cur.fetchone()
+            if drone_row:
+                start_x, start_y = float(drone_row[0]), float(drone_row[1])
+            
+            # 1. Update order status
+            cur.execute(
+                "UPDATE fact_orders SET status = 'Assigned', assigned_drone_id = %s WHERE order_id = %s",
+                (payload.drone_id, order_id)
+            )
+            # 2. Update drone status
+            cur.execute(
+                "UPDATE fact_drone_status SET status = 'Busy' WHERE drone_id = %s",
+                (payload.drone_id,)
+            )
+            conn.commit()
+            cur.close()
+            
+        background_tasks.add_task(simulate_drone_flight, payload.drone_id, start_x, start_y, end_x, end_y)
+        return {"message": "Đã điều phối drone thành công."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi điều phối đơn hàng: {e}")
+
+@app.post("/api/orders/{order_id}/complete")
+def complete_order(order_id: str, payload: OrderComplete):
+    try:
+        config = load_config()
+        wh_x = config.get("warehouse_x", 10.8411)
+        wh_y = config.get("warehouse_y", 106.8102)
+        
+        with db_connection() as conn:
+            cur = conn.cursor()
+            # 1. Update order status to Success/Failed
+            cur.execute(
+                "UPDATE fact_orders SET status = %s WHERE order_id = %s",
+                (payload.status, order_id)
+            )
+            # 2. Free up the drone (set status back to 'Ready', decrease battery level by 15%, reset position to warehouse)
+            cur.execute(
+                "UPDATE fact_drone_status SET status = 'Ready', battery_level = GREATEST(battery_level - 15, 0), current_x = %s, current_y = %s WHERE drone_id = %s",
+                (wh_x, wh_y, payload.drone_id)
+            )
+            conn.commit()
+            cur.close()
+        return {"message": f"Đơn hàng {order_id} đã được cập nhật trạng thái {payload.status}."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi hoàn thành đơn hàng: {e}")
+
 @app.get("/api/drones", response_model=List[DroneResponse])
 def get_drones():
     try:
@@ -255,7 +398,8 @@ def get_drones():
                     d.drone_size,
                     d.manufacturer,
                     d.propeller_count,
-                    d.max_carry_weight
+                    d.max_carry_weight,
+                    (SELECT order_id FROM fact_orders WHERE assigned_drone_id = s.drone_id AND status = 'Assigned' LIMIT 1) AS assigned_order_id
                 FROM fact_drone_status s
                 LEFT JOIN dim_drones d ON s.drone_id = d.drone_id
                 ORDER BY s.drone_id
@@ -268,6 +412,7 @@ def get_drones():
         df_drones['propeller_count'] = df_drones['propeller_count'].fillna(4).astype(int)
         df_drones['max_carry_weight'] = df_drones['max_carry_weight'].fillna(5.0)
         
+        df_drones = df_drones.astype(object).where(pd.notnull(df_drones), None)
         return df_drones.to_dict(orient="records")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy thông tin drone: {e}")
@@ -275,12 +420,19 @@ def get_drones():
 @app.post("/api/drones/reset")
 def reset_drones():
     try:
+        config = load_config()
+        wh_x = config.get("warehouse_x", 10.8411)
+        wh_y = config.get("warehouse_y", 106.8102)
+        
         with db_connection() as conn:
             cur = conn.cursor()
-            cur.execute("UPDATE fact_drone_status SET status = 'Ready'")
+            cur.execute(
+                "UPDATE fact_drone_status SET status = 'Ready', current_x = %s, current_y = %s",
+                (wh_x, wh_y)
+            )
             conn.commit()
             cur.close()
-        return {"message": "Đã đặt lại trạng thái Ready cho toàn bộ đội bay."}
+        return {"message": "Đã đặt lại trạng thái Ready và vị trí kho cho toàn bộ đội bay."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi reset đội bay: {e}")
 
@@ -382,18 +534,31 @@ def update_config_endpoint(config: ConfigUpdate):
     config_dict = {
         "warehouse_x": config.warehouse_x,
         "warehouse_y": config.warehouse_y,
-        "min_battery_level": config.min_battery_level
+        "min_battery_level": config.min_battery_level,
+        "warehouse_address": config.warehouse_address or "Khu công nghệ cao Quận 9, TP. Hồ Chí Minh"
     }
     if save_config(config_dict):
+        try:
+            with db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE fact_drone_status SET current_x = %s, current_y = %s",
+                    (config.warehouse_x, config.warehouse_y)
+                )
+                conn.commit()
+                cur.close()
+        except Exception as e:
+            print(f"Error updating drone coordinates to new warehouse config: {e}")
         return {"message": "Cấu hình đã được lưu thành công.", "config": config_dict}
     else:
-        raise HTTPException(status_code=500, detail="Không thể lưu tệp cấu hình.")
+        raise HTTPException(status_code=500, detail="Không thể lưu cấu hình hệ thống.")
 
 @app.get("/api/weather/wind")
 def get_weather():
     config = load_config()
     wh_x = config.get("warehouse_x", 10.8411)
     wh_y = config.get("warehouse_y", 106.8102)
+    wh_addr = config.get("warehouse_address", "Khu công nghệ cao Quận 9, TP. Hồ Chí Minh")
     url = f"https://api.open-meteo.com/v1/forecast?latitude={wh_x}&longitude={wh_y}&current=wind_speed_10m,weather_code,precipitation"
     try:
         response = requests.get(url, timeout=3)
@@ -406,7 +571,8 @@ def get_weather():
             "wind_speed": wind_speed_ms,
             "weather_code": weather_code,
             "precipitation": precipitation,
-            "is_live": True
+            "is_live": True,
+            "warehouse_address": wh_addr
         }
     except Exception as e:
         print(f"Weather API error: {e}")
@@ -414,7 +580,8 @@ def get_weather():
             "wind_speed": 3.5,
             "weather_code": 0,
             "precipitation": 0.0,
-            "is_live": False
+            "is_live": False,
+            "warehouse_address": wh_addr
         }
 
 @app.post("/api/analyze-risk", response_model=RiskAnalysisResponse)
@@ -484,24 +651,19 @@ def analyze_risk(payload: RiskAnalysisRequest):
         if ready_drones.empty:
             return {"status": "no_ready_drones", "recommendations": []}
 
-        # Check if any ready drones meet the battery and weight requirements
-        matching_drones = ready_drones[
-            (ready_drones['battery_level'] >= min_batt) & 
-            (ready_drones['max_carry_weight'] >= weight_kg)
-        ]
-        if matching_drones.empty:
-            return {"status": "no_drones_match_criteria", "recommendations": []}
-
-        # Filters: Ready, Battery >= min_batt, Carry Capacity >= Weight
-        valid_drones = matching_drones.copy()
-
         approved_list = []
-        if not valid_drones.empty:
-            for _, drone in valid_drones.iterrows():
-                w_ratio = weight_kg / float(drone['max_carry_weight'])
-                ow_flag = 1 if w_ratio > 1.0 else 0
-                sim_risk = (live_wind * 0.12) + (w_ratio * 0.4) + (dist_km * 0.05)
-                
+        for _, drone in ready_drones.iterrows():
+            w_ratio = weight_kg / float(drone['max_carry_weight'])
+            ow_flag = 1 if w_ratio > 1.0 else 0
+            sim_risk = (live_wind * 0.12) + (w_ratio * 0.4) + (dist_km * 0.05)
+            
+            # Basic criteria checks (battery and weight capacity)
+            meets_criteria = (drone['battery_level'] >= min_batt) and (drone['max_carry_weight'] >= weight_kg)
+            
+            is_approved = False
+            ai_label = "Non-completed 🔴"
+            
+            if meets_criteria:
                 # Predict risk using ML Model
                 X_live = pd.DataFrame([{
                     'application': 'Package Delivery', 'drone_size': drone['drone_size'],
@@ -514,18 +676,21 @@ def analyze_risk(payload: RiskAnalysisRequest):
                     'obstacles_encountered': 'No', 'notes': np.nan
                 }])
                 
-                ai_label = pipeline_model.predict(X_live)[0]
-                if ai_label == "Completed":
-                    approved_list.append({
-                        "Drone_ID": drone['drone_id'],
-                        "Model": drone['drone_model'],
-                        "Pin_Hien_Tai": f"{drone['battery_level']}%",
-                        "Suc_Tai_Max": f"{drone['max_carry_weight']} kg",
-                        "Trang_Thai_AI": "Completed 🟢 (An Toàn)"
-                    })
-
-        if not approved_list:
-            return {"status": "all_rejected_by_ai", "recommendations": []}
+                prediction = pipeline_model.predict(X_live)[0]
+                if prediction == "Completed":
+                    is_approved = True
+                    ai_label = "Completed 🟢"
+            
+            approved_list.append({
+                "Drone_ID": drone['drone_id'],
+                "Model": drone['drone_model'],
+                "Pin_Hien_Tai": f"{drone['battery_level']}%",
+                "Suc_Tai_Max": f"{drone['max_carry_weight']} kg",
+                "Trang_Thai_AI": ai_label,
+                "Risk_Score": round(float(sim_risk), 4),
+                "Weight_Ratio": round(float(w_ratio * 100), 2),
+                "Is_Approved": is_approved
+            })
 
         return {"status": "success", "recommendations": approved_list}
     except Exception as e:

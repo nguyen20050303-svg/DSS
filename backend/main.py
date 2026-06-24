@@ -185,6 +185,7 @@ class DroneRecommendation(BaseModel):
     Risk_Score: float
     Weight_Ratio: float
     Is_Approved: bool
+    propeller_count: int
 
 class ConfigUpdate(BaseModel):
     warehouse_x: float
@@ -689,7 +690,8 @@ def analyze_risk(payload: RiskAnalysisRequest):
                 "Trang_Thai_AI": ai_label,
                 "Risk_Score": round(float(sim_risk), 4),
                 "Weight_Ratio": round(float(w_ratio * 100), 2),
-                "Is_Approved": is_approved
+                "Is_Approved": is_approved,
+                "propeller_count": int(drone['propeller_count'])
             })
 
         return {"status": "success", "recommendations": approved_list}

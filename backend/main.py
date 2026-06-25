@@ -118,6 +118,19 @@ def compute_km(x1: float, y1: float, x2: float, y2: float) -> float:
     else:
         return round(raw_dist * 0.03, 2)
 
+def estimate_battery_consumption(dist_km: float, weight_kg: float, wind_speed: float) -> float:
+    # Base rate of battery consumption per km (empty drone, perfect conditions)
+    base_rate_per_km = 3.5  # 3.5% battery per km
+    # Weight penalty: +20% consumption rate per 1 kg of payload
+    weight_penalty = 0.20 * weight_kg
+    # Wind penalty: +5% consumption rate per 1 m/s of wind
+    wind_penalty = 0.05 * wind_speed
+    
+    rate_per_km = base_rate_per_km * (1.0 + weight_penalty + wind_penalty)
+    # Round trip distance is 2 * distance_km
+    total_consumed = 2 * dist_km * rate_per_km
+    return round(total_consumed, 2)
+
 def simulate_drone_flight(drone_id: str, start_x: float, start_y: float, end_x: float, end_y: float):
     import time
     steps = 10
@@ -186,6 +199,9 @@ class DroneRecommendation(BaseModel):
     Weight_Ratio: float
     Is_Approved: bool
     propeller_count: int
+    Est_Battery_Consumed: float
+    Est_Battery_Remaining: float
+    Is_Battery_Safe: bool
 
 class ConfigUpdate(BaseModel):
     warehouse_x: float
@@ -367,15 +383,32 @@ def complete_order(order_id: str, payload: OrderComplete):
         
         with db_connection() as conn:
             cur = conn.cursor()
+            
+            # Fetch order details for dynamic battery consumption calculation
+            cur.execute("SELECT customer_x, customer_y, total_weight_gram FROM fact_orders WHERE order_id = %s", (order_id,))
+            order_row = cur.fetchone()
+            
+            # Fetch live wind speed
+            wind_data = get_weather()
+            live_wind = wind_data["wind_speed"]
+            
+            if order_row:
+                cust_x, cust_y, weight_gram = float(order_row[0]), float(order_row[1]), float(order_row[2])
+                dist_km = compute_km(wh_x, wh_y, cust_x, cust_y)
+                weight_kg = weight_gram / 1000.0
+                battery_consumed = estimate_battery_consumption(dist_km, weight_kg, live_wind)
+            else:
+                battery_consumed = 15.0  # Fallback
+            
             # 1. Update order status to Success/Failed
             cur.execute(
                 "UPDATE fact_orders SET status = %s WHERE order_id = %s",
                 (payload.status, order_id)
             )
-            # 2. Free up the drone (set status back to 'Ready', decrease battery level by 15%, reset position to warehouse)
+            # 2. Free up the drone (set status back to 'Ready', decrease battery level dynamically, reset position to warehouse)
             cur.execute(
-                "UPDATE fact_drone_status SET status = 'Ready', battery_level = GREATEST(battery_level - 15, 0), current_x = %s, current_y = %s WHERE drone_id = %s",
-                (wh_x, wh_y, payload.drone_id)
+                "UPDATE fact_drone_status SET status = 'Ready', battery_level = GREATEST(battery_level - %s, 0), current_x = %s, current_y = %s WHERE drone_id = %s",
+                (int(round(battery_consumed)), wh_x, wh_y, payload.drone_id)
             )
             conn.commit()
             cur.close()
@@ -658,8 +691,13 @@ def analyze_risk(payload: RiskAnalysisRequest):
             ow_flag = 1 if w_ratio > 1.0 else 0
             sim_risk = (live_wind * 0.12) + (w_ratio * 0.4) + (dist_km * 0.05)
             
-            # Basic criteria checks (battery and weight capacity)
-            meets_criteria = (drone['battery_level'] >= min_batt) and (drone['max_carry_weight'] >= weight_kg)
+            # Estimate battery consumption and remaining battery after roundtrip
+            est_consumed = estimate_battery_consumption(dist_km, weight_kg, live_wind)
+            est_remaining = max(float(drone['battery_level']) - est_consumed, 0.0)
+            is_battery_safe = est_remaining >= min_batt
+            
+            # Basic criteria checks (battery and weight capacity, and safety of return battery)
+            meets_criteria = (drone['battery_level'] >= min_batt) and (drone['max_carry_weight'] >= weight_kg) and is_battery_safe
             
             is_approved = False
             ai_label = "Non-completed 🔴"
@@ -673,7 +711,7 @@ def analyze_risk(payload: RiskAnalysisRequest):
                     'actual_carry_weight': weight_kg, 'payload_type': 'Package', 'payload_description': 'Consumer goods',
                     'altitude': 60, 'distance_flown': dist_km, 'gps_accuracy': 2.1, 'wind_speed': live_wind,
                     'overweight_flag': ow_flag, 'weight_ratio': w_ratio, 'risk_score': sim_risk,
-                    'flight_duration': 30.0, 'battery_remaining': float(drone['battery_level']) - 10.0,
+                    'flight_duration': 30.0, 'battery_remaining': est_remaining,
                     'obstacles_encountered': 'No', 'notes': np.nan
                 }])
                 
@@ -691,7 +729,10 @@ def analyze_risk(payload: RiskAnalysisRequest):
                 "Risk_Score": round(float(sim_risk), 4),
                 "Weight_Ratio": round(float(w_ratio * 100), 2),
                 "Is_Approved": is_approved,
-                "propeller_count": int(drone['propeller_count'])
+                "propeller_count": int(drone['propeller_count']),
+                "Est_Battery_Consumed": est_consumed,
+                "Est_Battery_Remaining": round(est_remaining, 2),
+                "Is_Battery_Safe": is_battery_safe
             })
 
         # Sort recommendations: Is_Approved descending (True first), Risk_Score ascending (lower risk first)

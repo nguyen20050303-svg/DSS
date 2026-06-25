@@ -1134,7 +1134,7 @@ function App() {
                     ) : (
                       <div className="alert alert-success" style={{ marginBottom: '1.5rem', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem', padding: '1rem 1.25rem' }}>
                         <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span>ℹ️ HƯỚNG DẪN ĐỌC CHỈ SỐ PHÂN TÍCH:</span>
+                          <span>ℹ️ HƯỚNG DẪN ĐỌC CHỈ SỐ PHÂN TÍCH & RỦI RO PIN:</span>
                         </div>
                         <ul style={{ margin: '0.25rem 0 0 1.25rem', padding: 0, fontSize: '0.85rem', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                           <li style={{ listStyleType: 'disc' }}><strong>Điểm Rủi Ro (Risk Score)</strong>: Điểm số động phản ánh nguy cơ sự cố bay, tính dựa trên sự tương tác giữa Sức gió động (12%), Tỷ lệ thực tải (40%) và Khoảng cách bay (5%).</li>
@@ -1144,6 +1144,7 @@ function App() {
                             <span style={{ color: '#ef4444', fontWeight: 'bold', marginLeft: '0.25rem' }}>&gt; 3.0: Cao (Nguy hiểm) 🔴</span>.
                           </li>
                           <li style={{ listStyleType: 'disc' }}><strong>Tỉ lệ Thực Tải</strong>: Tỉ lệ khối lượng đơn hàng chiếm so với sức chở lớn nhất của drone (<code>Trọng lượng đơn / Tải trọng tối đa của drone</code>).</li>
+                          <li style={{ listStyleType: 'disc' }}><strong>Rủi ro pin khứ hồi</strong>: Dự báo lượng pin tiêu hao dựa trên khoảng cách đi-về, tải trọng và tốc độ gió. Pin còn lại sau khứ hồi phải &ge; Ngưỡng an toàn tối thiểu (mặc định {configMinBattery}%). Nếu không đủ, drone sẽ bị đánh dấu đỏ không an toàn và khóa cất cánh.</li>
                         </ul>
                       </div>
                     )}
@@ -1153,8 +1154,9 @@ function App() {
                         <thead>
                           <tr>
                             <th>Drone ID</th>
-                            <th>Pin</th>
-                            <th>Số Cánh</th>
+                            <th>Pin Hiện Tại</th>
+                            <th>Hao Pin Dự Kiến</th>
+                            <th>Pin Dự Kiến Còn Lại</th>
                             <th>Sức Tải Tối Đa</th>
                             <th>Tỉ lệ Thực Tải</th>
                             <th>Điểm Rủi Ro</th>
@@ -1170,7 +1172,13 @@ function App() {
                             >
                               <td><strong>{rec.Drone_ID}</strong></td>
                               <td>{rec.Pin_Hien_Tai}</td>
-                              <td>{rec.propeller_count} cánh</td>
+                              <td style={{ color: 'var(--color-warning)' }}>-{rec.Est_Battery_Consumed}%</td>
+                              <td style={{
+                                fontWeight: 'bold',
+                                color: rec.Is_Battery_Safe ? 'var(--color-success)' : 'var(--color-danger)'
+                              }}>
+                                {rec.Est_Battery_Remaining}% {rec.Is_Battery_Safe ? '🟢' : '🔴 (Yếu)'}
+                              </td>
                               <td>{rec.Suc_Tai_Max}</td>
                               <td>
                                 <span style={{ fontWeight: '500', color: rec.Weight_Ratio > 85 ? 'var(--color-warning)' : 'var(--text-primary)' }}>

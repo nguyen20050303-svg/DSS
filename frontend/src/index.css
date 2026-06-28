@@ -636,3 +636,41 @@ input:focus, select:focus {
   background: var(--color-accent);
   box-shadow: 0 0 10px var(--color-accent);
 }
+
+/* Leaflet maps custom styles */
+.dss-map-container {
+  height: 280px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 242, 254, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  margin: 1rem 0;
+  background: #0f172a;
+  z-index: 1; /* Keep leaflet controls below dropdown lists and modals */
+}
+
+/* Ensure Leaflet controls don't overlap modals */
+.leaflet-pane, .leaflet-control-container {
+  z-index: 1 !important;
+}
+
+/* Custom Marker Styling to add glowing effect */
+.leaflet-marker-icon {
+  filter: drop-shadow(0 0 5px var(--color-accent));
+}
+
+/* Leaflet dark theme attribution styling */
+.leaflet-container .leaflet-control-attribution {
+  background: rgba(10, 14, 26, 0.8) !important;
+  color: var(--text-muted) !important;
+}
+
+.leaflet-bar a {
+  background-color: #111827 !important;
+  color: #fff !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+.leaflet-bar a:hover {
+  background-color: rgba(0, 242, 254, 0.1) !important;
+  color: var(--color-accent) !important;
+}

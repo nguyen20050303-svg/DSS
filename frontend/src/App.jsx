@@ -1,9 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dispatch'); // 'orders', 'dispatch', or 'config'
+
+  // Leaflet Map & Marker refs to handle component lifecycles cleanly
+  const orderMapRef = useRef(null);
+  const orderMarkerRef = useRef(null);
+  const configMapRef = useRef(null);
+  const configMarkerRef = useRef(null);
+  const modalMapRef = useRef(null);
+  const modalMarkerRef = useRef(null);
 
   // Data State
   const [orders, setOrders] = useState([]);
@@ -170,6 +178,230 @@ function App() {
     fetchConfig();
   }, [activeTab]);
 
+  // 1. Placement Map useEffect Hook (Tab 'orders')
+  useEffect(() => {
+    const mapEl = document.getElementById('placement-map');
+    if (!mapEl) return;
+
+    const defaultLat = formCustX ? parseFloat(formCustX) : parseFloat(configWarehouseX) || 10.8411;
+    const defaultLng = formCustY ? parseFloat(formCustY) : parseFloat(configWarehouseY) || 106.8102;
+
+    let map = orderMapRef.current;
+    if (!map) {
+      map = window.L.map(mapEl).setView([defaultLat, defaultLng], 14);
+      window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CartoDB'
+      }).addTo(map);
+
+      orderMapRef.current = map;
+
+      map.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        const clickLat = parseFloat(lat.toFixed(4));
+        const clickLng = parseFloat(lng.toFixed(4));
+        
+        setFormCustX(clickLat.toString());
+        setFormCustY(clickLng.toString());
+
+        if (orderMarkerRef.current) {
+          orderMarkerRef.current.setLatLng([clickLat, clickLng]);
+        } else {
+          orderMarkerRef.current = window.L.marker([clickLat, clickLng]).addTo(map);
+        }
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${clickLat}&lon=${clickLng}`, {
+            headers: { 'User-Agent': 'uav-dss-dispatch-app/1.0' }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.display_name) {
+              setAddressSearchQuery(data.display_name);
+            }
+          }
+        } catch (err) {
+          console.error("Reverse geocoding error:", err);
+        }
+      });
+    } else {
+      map.setView([defaultLat, defaultLng], 14);
+    }
+
+    if (formCustX && formCustY) {
+      const markerLat = parseFloat(formCustX);
+      const markerLng = parseFloat(formCustY);
+      if (orderMarkerRef.current) {
+        orderMarkerRef.current.setLatLng([markerLat, markerLng]);
+      } else {
+        orderMarkerRef.current = window.L.marker([markerLat, markerLng]).addTo(map);
+      }
+    } else {
+      if (orderMarkerRef.current) {
+        map.removeLayer(orderMarkerRef.current);
+        orderMarkerRef.current = null;
+      }
+    }
+  }, [activeTab, formCustX, formCustY]);
+
+  // Clean up placement map when leaving orders tab
+  useEffect(() => {
+    if (activeTab !== 'orders') {
+      if (orderMapRef.current) {
+        orderMapRef.current.remove();
+        orderMapRef.current = null;
+        orderMarkerRef.current = null;
+      }
+    }
+  }, [activeTab]);
+
+  // 2. Configuration Map useEffect Hook (Tab 'config', General subtab)
+  useEffect(() => {
+    const mapEl = document.getElementById('config-map');
+    if (!mapEl) return;
+
+    const defaultLat = configWarehouseX ? parseFloat(configWarehouseX) : 10.8411;
+    const defaultLng = configWarehouseY ? parseFloat(configWarehouseY) : 106.8102;
+
+    let map = configMapRef.current;
+    if (!map) {
+      map = window.L.map(mapEl).setView([defaultLat, defaultLng], 14);
+      window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CartoDB'
+      }).addTo(map);
+
+      configMapRef.current = map;
+
+      map.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        const clickLat = parseFloat(lat.toFixed(4));
+        const clickLng = parseFloat(lng.toFixed(4));
+        
+        setConfigWarehouseX(clickLat);
+        setConfigWarehouseY(clickLng);
+
+        if (configMarkerRef.current) {
+          configMarkerRef.current.setLatLng([clickLat, clickLng]);
+        } else {
+          configMarkerRef.current = window.L.marker([clickLat, clickLng]).addTo(map);
+        }
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${clickLat}&lon=${clickLng}`, {
+            headers: { 'User-Agent': 'uav-dss-dispatch-app/1.0' }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.display_name) {
+              setWarehouseAddress(data.display_name);
+              setConfigAddressQuery(data.display_name);
+            }
+          }
+        } catch (err) {
+          console.error("Reverse geocoding error:", err);
+        }
+      });
+    } else {
+      map.setView([defaultLat, defaultLng], 14);
+    }
+
+    if (configWarehouseX && configWarehouseY) {
+      const markerLat = parseFloat(configWarehouseX);
+      const markerLng = parseFloat(configWarehouseY);
+      if (configMarkerRef.current) {
+        configMarkerRef.current.setLatLng([markerLat, markerLng]);
+      } else {
+        configMarkerRef.current = window.L.marker([markerLat, markerLng]).addTo(map);
+      }
+    }
+  }, [activeTab, configSubTab, configWarehouseX, configWarehouseY]);
+
+  // Clean up config map when leaving general config subtab
+  useEffect(() => {
+    if (activeTab !== 'config' || configSubTab !== 'general') {
+      if (configMapRef.current) {
+        configMapRef.current.remove();
+        configMapRef.current = null;
+        configMarkerRef.current = null;
+      }
+    }
+  }, [activeTab, configSubTab]);
+
+  // 3. Modal Order Map useEffect Hook (when modal is open)
+  useEffect(() => {
+    const mapEl = document.getElementById('modal-map');
+    if (!mapEl) return;
+
+    const defaultLat = orderFormX ? parseFloat(orderFormX) : parseFloat(configWarehouseX) || 10.8411;
+    const defaultLng = orderFormY ? parseFloat(orderFormY) : parseFloat(configWarehouseY) || 106.8102;
+
+    let map = modalMapRef.current;
+    if (!map) {
+      map = window.L.map(mapEl).setView([defaultLat, defaultLng], 14);
+      window.L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CartoDB'
+      }).addTo(map);
+
+      modalMapRef.current = map;
+
+      map.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        const clickLat = parseFloat(lat.toFixed(4));
+        const clickLng = parseFloat(lng.toFixed(4));
+        
+        setOrderFormX(clickLat.toString());
+        setOrderFormY(clickLng.toString());
+
+        if (modalMarkerRef.current) {
+          modalMarkerRef.current.setLatLng([clickLat, clickLng]);
+        } else {
+          modalMarkerRef.current = window.L.marker([clickLat, clickLng]).addTo(map);
+        }
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${clickLat}&lon=${clickLng}`, {
+            headers: { 'User-Agent': 'uav-dss-dispatch-app/1.0' }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.display_name) {
+              setOrderFormAddressQuery(data.display_name);
+            }
+          }
+        } catch (err) {
+          console.error("Reverse geocoding error:", err);
+        }
+      });
+    } else {
+      map.setView([defaultLat, defaultLng], 14);
+    }
+
+    if (orderFormX && orderFormY) {
+      const markerLat = parseFloat(orderFormX);
+      const markerLng = parseFloat(orderFormY);
+      if (modalMarkerRef.current) {
+        modalMarkerRef.current.setLatLng([markerLat, markerLng]);
+      } else {
+        modalMarkerRef.current = window.L.marker([markerLat, markerLng]).addTo(map);
+      }
+    } else {
+      if (modalMarkerRef.current) {
+        map.removeLayer(modalMarkerRef.current);
+        modalMarkerRef.current = null;
+      }
+    }
+  }, [isOrderModalOpen, orderFormX, orderFormY]);
+
+  // Clean up modal map when closed
+  useEffect(() => {
+    if (!isOrderModalOpen) {
+      if (modalMapRef.current) {
+        modalMapRef.current.remove();
+        modalMapRef.current = null;
+        modalMarkerRef.current = null;
+      }
+    }
+  }, [isOrderModalOpen]);
+
   // Polling for real-time tracking if there is a busy drone
   useEffect(() => {
     if (activeTab !== 'dispatch') return;
@@ -222,10 +454,15 @@ function App() {
   };
 
   const handleSelectSuggestion = (suggestion) => {
-    setFormCustX(parseFloat(suggestion.lat).toFixed(4));
-    setFormCustY(parseFloat(suggestion.lon).toFixed(4));
+    const lat = parseFloat(suggestion.lat).toFixed(4);
+    const lon = parseFloat(suggestion.lon).toFixed(4);
+    setFormCustX(lat);
+    setFormCustY(lon);
     setAddressSearchQuery(suggestion.display_name);
     setAddressSuggestions([]);
+    if (orderMapRef.current) {
+      orderMapRef.current.setView([parseFloat(lat), parseFloat(lon)], 14);
+    }
   };
 
   // Handle Configuration Address Geocoding Search (OpenStreetMap Nominatim)
@@ -261,10 +498,16 @@ function App() {
   };
 
   const handleSelectConfigSuggestion = (suggestion) => {
-    setConfigWarehouseX(parseFloat(suggestion.lat).toFixed(4));
-    setConfigWarehouseY(parseFloat(suggestion.lon).toFixed(4));
+    const lat = parseFloat(suggestion.lat).toFixed(4);
+    const lon = parseFloat(suggestion.lon).toFixed(4);
+    setConfigWarehouseX(lat);
+    setConfigWarehouseY(lon);
     setConfigAddressQuery(suggestion.display_name);
+    setWarehouseAddress(suggestion.display_name);
     setConfigAddressSuggestions([]);
+    if (configMapRef.current) {
+      configMapRef.current.setView([parseFloat(lat), parseFloat(lon)], 14);
+    }
   };
 
   // Open Drone Modal
@@ -443,10 +686,15 @@ function App() {
   };
 
   const handleSelectOrderFormSuggestion = (suggestion) => {
-    setOrderFormX(parseFloat(suggestion.lat).toFixed(4));
-    setOrderFormY(parseFloat(suggestion.lon).toFixed(4));
+    const lat = parseFloat(suggestion.lat).toFixed(4);
+    const lon = parseFloat(suggestion.lon).toFixed(4);
+    setOrderFormX(lat);
+    setOrderFormY(lon);
     setOrderFormAddressQuery(suggestion.display_name);
     setOrderFormAddressSuggestions([]);
+    if (modalMapRef.current) {
+      modalMapRef.current.setView([parseFloat(lat), parseFloat(lon)], 14);
+    }
   };
 
   // Submit Order Form (Add / Edit)
@@ -847,6 +1095,9 @@ function App() {
                     </ul>
                   )}
                 </div>
+
+                {/* Interactive map widget */}
+                <div id="placement-map" className="dss-map-container"></div>
 
                 {formCustX && formCustY && (
                   <div style={{
@@ -1496,6 +1747,9 @@ function App() {
                       )}
                     </div>
 
+                    {/* Warehouse config map container */}
+                    <div id="config-map" className="dss-map-container"></div>
+
                     {configWarehouseX && configWarehouseY && (
                       <div style={{
                         marginTop: '1rem',
@@ -1808,6 +2062,9 @@ function App() {
                     </ul>
                   )}
                 </div>
+
+                {/* Interactive map widget for modal */}
+                <div id="modal-map" className="dss-map-container"></div>
 
                 {orderFormX && orderFormY && (
                   <div style={{

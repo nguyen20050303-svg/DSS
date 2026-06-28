@@ -118,17 +118,25 @@ def compute_km(x1: float, y1: float, x2: float, y2: float) -> float:
     else:
         return round(raw_dist * 0.03, 2)
 
-def estimate_battery_consumption(dist_km: float, weight_kg: float, wind_speed: float) -> float:
-    # Base rate of battery consumption per km (empty drone, perfect conditions)
-    base_rate_per_km = 3.5  # 3.5% battery per km
-    # Weight penalty: +20% consumption rate per 1 kg of payload
-    weight_penalty = 0.20 * weight_kg
-    # Wind penalty: +5% consumption rate per 1 m/s of wind
-    wind_penalty = 0.05 * wind_speed
+def estimate_battery_consumption(dist_km: float, weight_kg: float, wind_speed: float, max_carry_weight: float, propeller_count: int) -> float:
+    # Base rate of battery consumption per km increases with propeller count (more motors = more base power)
+    base_rate_per_km = 2.5 + (0.25 * propeller_count)
     
-    rate_per_km = base_rate_per_km * (1.0 + weight_penalty + wind_penalty)
-    # Round trip distance is 2 * distance_km
-    total_consumed = 2 * dist_km * rate_per_km
+    # Wind penalty: wind speed penalty decreases as propeller count increases (more rotors = better stability/wind resistance)
+    wind_penalty = wind_speed * max(0.10 - 0.005 * propeller_count, 0.01)
+    
+    # 1. Delivery Leg (Go): Drone carries the package (has weight penalty)
+    weight_ratio = weight_kg / max(max_carry_weight, 0.1)
+    weight_penalty = 0.30 * weight_ratio
+    rate_go = base_rate_per_km * (1.0 + weight_penalty + wind_penalty)
+    consumed_go = dist_km * rate_go
+    
+    # 2. Return Leg (Back): Drone is empty (no weight penalty)
+    rate_back = base_rate_per_km * (1.0 + wind_penalty)
+    consumed_back = dist_km * rate_back
+    
+    # Total round trip consumption is the sum of both legs
+    total_consumed = consumed_go + consumed_back
     return round(total_consumed, 2)
 
 def simulate_drone_flight(drone_id: str, start_x: float, start_y: float, end_x: float, end_y: float):
@@ -274,9 +282,9 @@ def create_order(order: OrderCreate):
             cur = conn.cursor()
             order_id = order.Order_ID
             if not order_id:
-                cur.execute("SELECT count(*) FROM fact_orders")
-                count = cur.fetchone()[0]
-                order_id = f"ORD-{count + 1:03d}"
+                cur.execute("SELECT COALESCE(MAX(CAST(SUBSTRING(order_id FROM 5) AS INTEGER)), 0) FROM fact_orders WHERE order_id LIKE 'ORD-%'")
+                max_id_num = cur.fetchone()[0]
+                order_id = f"ORD-{max_id_num + 1:03d}"
                 
             cur.execute(
                 "INSERT INTO fact_orders (order_id, customer_x, customer_y, total_weight_gram, status, customer_address) VALUES (%s, %s, %s, %s, 'Pending', %s)",
@@ -692,7 +700,7 @@ def analyze_risk(payload: RiskAnalysisRequest):
             sim_risk = (live_wind * 0.12) + (w_ratio * 0.4) + (dist_km * 0.05)
             
             # Estimate battery consumption and remaining battery after roundtrip
-            est_consumed = estimate_battery_consumption(dist_km, weight_kg, live_wind)
+            est_consumed = estimate_battery_consumption(dist_km, weight_kg, live_wind, float(drone['max_carry_weight']), int(drone['propeller_count']))
             est_remaining = max(float(drone['battery_level']) - est_consumed, 0.0)
             is_battery_safe = est_remaining >= min_batt
             

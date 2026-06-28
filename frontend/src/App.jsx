@@ -5,6 +5,12 @@ const API_BASE_URL = 'http://localhost:8000';
 function App() {
   const [activeTab, setActiveTab] = useState('dispatch'); // 'orders', 'dispatch', or 'config'
 
+  // Settings: Live real-time updates toggle
+  const [isLiveTracking, setIsLiveTracking] = useState(() => {
+    const saved = localStorage.getItem('isLiveTracking');
+    return saved !== 'false';
+  });
+
   // Leaflet Map & Marker refs to handle component lifecycles cleanly
   const orderMapRef = useRef(null);
   const orderMarkerRef = useRef(null);
@@ -178,6 +184,22 @@ function App() {
     fetchConfig();
   }, [activeTab]);
 
+  // Auto-dismiss notification toast after 4s
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(''), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  // Auto-dismiss errorMsg toast after 5s
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => setErrorMsg(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
+
   // 1. Placement Map useEffect Hook (Tab 'orders')
   useEffect(() => {
     const mapEl = document.getElementById('placement-map');
@@ -199,7 +221,7 @@ function App() {
         const { lat, lng } = e.latlng;
         const clickLat = parseFloat(lat.toFixed(4));
         const clickLng = parseFloat(lng.toFixed(4));
-        
+
         setFormCustX(clickLat.toString());
         setFormCustY(clickLng.toString());
 
@@ -275,7 +297,7 @@ function App() {
         const { lat, lng } = e.latlng;
         const clickLat = parseFloat(lat.toFixed(4));
         const clickLng = parseFloat(lng.toFixed(4));
-        
+
         setConfigWarehouseX(clickLat);
         setConfigWarehouseY(clickLng);
 
@@ -347,7 +369,7 @@ function App() {
         const { lat, lng } = e.latlng;
         const clickLat = parseFloat(lat.toFixed(4));
         const clickLng = parseFloat(lng.toFixed(4));
-        
+
         setOrderFormX(clickLat.toString());
         setOrderFormY(clickLng.toString());
 
@@ -404,7 +426,7 @@ function App() {
 
   // Polling for real-time tracking if there is a busy drone
   useEffect(() => {
-    if (activeTab !== 'dispatch') return;
+    if (activeTab !== 'dispatch' || !isLiveTracking) return;
 
     const timer = setInterval(() => {
       // Simulate live GPS fluctuation around 2.1m (+/- 0.2m)
@@ -419,7 +441,7 @@ function App() {
     }, 1500);
 
     return () => clearInterval(timer);
-  }, [activeTab, drones]);
+  }, [activeTab, drones, isLiveTracking]);
 
   // Handle Address Geocoding Search (OpenStreetMap Nominatim)
   const handleSearchAddress = async (query) => {
@@ -1025,19 +1047,6 @@ function App() {
       {/* Main Panel Content */}
       <main className="main-content">
 
-        {/* Global Notifications/Alerts */}
-        {notification && (
-          <div className="alert alert-success success-banner">
-            <div>{notification}</div>
-            <button style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', float: 'right' }} onClick={() => setNotification('')}>✕</button>
-          </div>
-        )}
-        {errorMsg && (
-          <div className="alert alert-danger">
-            <div>⚠ CẢNH BÁO: {errorMsg}</div>
-          </div>
-        )}
-
         {/* ======================================= */}
         {/* SCREEN 1: ORDER PLACEMENT (CUSTOMER)     */}
         {/* ======================================= */}
@@ -1144,7 +1153,7 @@ function App() {
             <div className="kpi-container">
               <div className="kpi-card">
                 <div className="kpi-title">Đơn chờ điều phối</div>
-                <div className="kpi-value">{loadingOrders ? '...' : `${orders.length} Đơn hàng`}</div>
+                <div className="kpi-value">{loadingOrders ? '...' : `${orders.filter(o => o.Status === 'Pending' || !o.Status).length} Đơn hàng`}</div>
                 <div className="kpi-detail">Hàng đợi động (Supabase DB)</div>
               </div>
               <div className="kpi-card">
@@ -1278,7 +1287,7 @@ function App() {
 
               {/* Left Column: Queue List */}
               <div className="card-panel">
-                <h3 className="card-title">📋 Hàng đợi phân tích đơn hàng chờ xử lý</h3>
+                <h3 className="card-title">📋 Đơn hàng chờ xử lý</h3>
 
                 <div className="table-wrapper">
                   {loadingOrders ? (
@@ -1360,11 +1369,11 @@ function App() {
               </div>
 
               {/* Right Column: AI Recommendations */}
-              <div className="card-panel">
-                <h3 className="card-title">🤖 Khuyến nghị phương án an toàn từ AI</h3>
+              <div className="card-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <h3 className="card-title">🤖 Khuyến nghị an toàn từ Hệ thống</h3>
 
                 {riskResults === null ? (
-                  <div className="alert alert-info" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: '3rem 2rem', textAlign: 'center' }}>
+                  <div className="alert alert-info" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: '3rem 2rem', textAlign: 'center' }}>
                     <div>
                       <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>👈</p>
                       Vui lòng chọn một đơn hàng bên trái và click vào nút phân tích để kích hoạt mô hình AI.
@@ -1416,7 +1425,7 @@ function App() {
                         </thead>
                         <tbody>
                           {riskResults.recommendations && riskResults.recommendations.map((rec) => (
-                            <tr 
+                            <tr
                               key={rec.Drone_ID}
                               className={`clickable-row ${selectedDroneId === rec.Drone_ID ? 'selected-row' : ''}`}
                               onClick={() => setSelectedDroneId(rec.Drone_ID)}
@@ -1493,8 +1502,10 @@ function App() {
                       let btnLabel = 'PHÁT LỆNH CẤT CÁNH (CONFIRM DISPATCH)';
                       if (isExtremeWeather) {
                         btnLabel = '🔒 ĐÃ KHÓA CẤT CÁNH (DO THỜI TIẾT XẤU)';
+                      } else if (selectedRec && !selectedRec.meets_criteria) {
+                        btnLabel = '🔒 KHÓA CẤT CÁNH (VI PHẠM QUY TẮC AN TOÀN BAY)';
                       } else if (isRisky) {
-                        btnLabel = '🔒 AI KHUYẾN NGHỊ KHÔNG CHO CẤT CÁNH';
+                        btnLabel = '🔒 AI CẢNH BÁO NGUY HIỂM / TỪ CHỐI BAY';
                       } else if (!selectedDroneId) {
                         btnLabel = 'VUI LÒNG CHỌN DRONE KHẢ THI';
                       }
@@ -1782,6 +1793,26 @@ function App() {
                         required
                       />
                       <div className="form-hint">Drones có mức pin thấp hơn mức này sẽ không được đề xuất bay (Mặc định: 30%)</div>
+                    </div>
+
+                    {/* Real-time Tracking Toggle */}
+                    <div className="switch-container">
+                      <div>
+                        <div className="switch-label">🔄 Tự động cập nhật vị trí Drone thời gian thực</div>
+                        <div className="switch-desc">Khi bật, client sẽ liên tục gửi request thăm dò (polling) để cập nhật tọa độ UAV đang bay trên bản đồ điều phối.</div>
+                      </div>
+                      <label className="dss-switch">
+                        <input
+                          type="checkbox"
+                          checked={isLiveTracking}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setIsLiveTracking(val);
+                            localStorage.setItem('isLiveTracking', val.toString());
+                          }}
+                        />
+                        <span className="slider"></span>
+                      </label>
                     </div>
 
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
@@ -2091,6 +2122,22 @@ function App() {
         )}
 
       </main>
+
+      {/* Toast Notifications Container */}
+      <div className="dss-toast-container">
+        {notification && (
+          <div className="dss-toast dss-toast-success">
+            <div className="dss-toast-content">{notification}</div>
+            <button className="dss-toast-close" onClick={() => setNotification('')}>✕</button>
+          </div>
+        )}
+        {errorMsg && (
+          <div className="dss-toast dss-toast-error">
+            <div className="dss-toast-content">⚠ CẢNH BÁO: {errorMsg}</div>
+            <button className="dss-toast-close" onClick={() => setErrorMsg('')}>✕</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -713,14 +713,19 @@ def analyze_risk(payload: RiskAnalysisRequest):
             if meets_criteria:
                 # Predict risk using ML Model
                 X_live = pd.DataFrame([{
-                    'application': 'Package Delivery', 'drone_size': drone['drone_size'],
-                    'drone_model': drone['drone_model'], 'manufacturer': drone['manufacturer'],
-                    'propeller_count': int(drone['propeller_count']), 'max_carry_weight': float(drone['max_carry_weight']),
-                    'actual_carry_weight': weight_kg, 'payload_type': 'Package', 'payload_description': 'Consumer goods',
-                    'altitude': 60, 'distance_flown': dist_km, 'gps_accuracy': 2.1, 'wind_speed': live_wind,
-                    'overweight_flag': ow_flag, 'weight_ratio': w_ratio, 'risk_score': sim_risk,
-                    'flight_duration': 30.0, 'battery_remaining': est_remaining,
-                    'obstacles_encountered': 'No', 'notes': np.nan
+                    'propeller_count': int(drone['propeller_count']),
+                    'max_carry_weight': float(drone['max_carry_weight']),
+                    'actual_carry_weight': weight_kg,
+                    'altitude': 60,
+                    'flight_duration': 30.0,
+                    'distance_flown': dist_km,
+                    'battery_remaining': est_remaining,
+                    'gps_accuracy': 2.1,
+                    'wind_speed': live_wind,
+                    'overweight_flag': ow_flag,
+                    'weight_ratio': w_ratio,
+                    'risk_score': sim_risk,
+                    'obstacles_encountered': 'No',
                 }])
                 
                 prediction = pipeline_model.predict(X_live)[0]

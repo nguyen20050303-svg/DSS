@@ -184,26 +184,19 @@ def generate_audit_data():
             if meets_criteria:
                 # Prepare payload for scikit-learn model
                 X_live = pd.DataFrame([{
-                    'application': 'Package Delivery',
-                    'drone_size': drone['drone_size'],
-                    'drone_model': drone['drone_model'],
-                    'manufacturer': drone['manufacturer'],
                     'propeller_count': propellers,
                     'max_carry_weight': max_carry,
                     'actual_carry_weight': weight_kg,
-                    'payload_type': 'Package',
-                    'payload_description': 'Consumer goods',
                     'altitude': 60,
+                    'flight_duration': 30.0,
                     'distance_flown': dist_km,
+                    'battery_remaining': est_remaining,
                     'gps_accuracy': 2.1,
                     'wind_speed': wind_speed,
                     'overweight_flag': ow_flag,
                     'weight_ratio': w_ratio,
                     'risk_score': sim_risk,
-                    'flight_duration': 30.0,
-                    'battery_remaining': est_remaining,
                     'obstacles_encountered': 'No',
-                    'notes': np.nan
                 }])
                 
                 prediction = pipeline_model.predict(X_live)[0]

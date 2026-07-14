@@ -31,6 +31,10 @@ jobs:
           npm install
           npm run build
 
+      # Step 3.5: Xóa node_modules để giảm dung lượng gói deploy
+      - name: Clean up Frontend node_modules
+        run: rm -rf frontend/node_modules
+
       # Step 4: Thiết lập Python (cho phép kiểm tra cấu hình)
       - name: Set up Python
         uses: actions/setup-python@v4

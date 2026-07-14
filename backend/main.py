@@ -25,7 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_URI = "postgresql://postgres.qhqynnxpeyhnjtiyifsi:DSS301_Project@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+DB_URI = os.getenv("DATABASE_URL", "postgresql://postgres.qhqynnxpeyhnjtiyifsi:DSS301_Project@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres")
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "logistic_model.pkl")
 
 # Initialize connection pool
@@ -767,3 +767,32 @@ def analyze_risk(payload: RiskAnalysisRequest):
         return {"status": "success", "recommendations": approved_list}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi thực hiện phân tích rủi ro: {e}")
+
+# --- Serve Frontend Static Files ---
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# Resolve absolute path to the frontend build directory
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+
+# Fallback endpoint to serve React SPA (single page app) routing
+@app.get("/{fallback_path:path}")
+async def serve_frontend(fallback_path: str):
+    # If the path is empty, serve index.html
+    if not fallback_path:
+        index_path = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"detail": "Frontend build not found. Please build the frontend."}
+    
+    # Check if the requested path corresponds to an existing file (e.g., assets/index-xxx.js)
+    file_path = os.path.join(FRONTEND_DIST, fallback_path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    # For any other routes (client-side routing fallback), return index.html
+    index_path = os.path.join(FRONTEND_DIST, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    
+    return {"detail": "Not Found"}

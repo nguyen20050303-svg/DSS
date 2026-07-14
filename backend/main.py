@@ -26,7 +26,19 @@ app.add_middleware(
 )
 
 DB_URI = os.getenv("DATABASE_URL", "postgresql://postgres.qhqynnxpeyhnjtiyifsi:DSS301_Project@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres")
-MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "logistic_model.pkl")
+
+# --- Diagnostics ---
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(f"[DIAGNOSTIC] __file__: {os.path.abspath(__file__)}", flush=True)
+print(f"[DIAGNOSTIC] parent_dir: {parent_dir}", flush=True)
+model_dir = os.path.join(parent_dir, "model")
+print(f"[DIAGNOSTIC] model_dir: {model_dir}", flush=True)
+if os.path.exists(model_dir):
+    print(f"[DIAGNOSTIC] Files in model_dir: {os.listdir(model_dir)}", flush=True)
+else:
+    print(f"[DIAGNOSTIC] model_dir does not exist!", flush=True)
+
+MODEL_PATH = os.path.join(parent_dir, "model", "logistic_model.pkl")
 
 # Initialize connection pool
 try:
@@ -104,11 +116,11 @@ pipeline_model = None
 if os.path.exists(MODEL_PATH):
     try:
         pipeline_model = joblib.load(MODEL_PATH)
-        print("[SUCCESS] AI Model loaded successfully.")
+        print(f"[SUCCESS] AI Model loaded successfully from {MODEL_PATH}.", flush=True)
     except Exception as e:
-        print(f"Error loading model from {MODEL_PATH}: {e}")
+        print(f"Error loading model from {MODEL_PATH}: {e}", flush=True)
 else:
-    print(f"WARNING: AI Model file not found at {MODEL_PATH}")
+    print(f"WARNING: AI Model file not found at {MODEL_PATH}", flush=True)
 
 # Helper: Compute distance in km
 def compute_km(x1: float, y1: float, x2: float, y2: float) -> float:
@@ -631,9 +643,12 @@ def get_weather():
 def analyze_risk(payload: RiskAnalysisRequest):
     global pipeline_model
     if pipeline_model is None:
+        print(f"[ANALYZE-RISK] pipeline_model is None, trying to load from {MODEL_PATH}", flush=True)
         if os.path.exists(MODEL_PATH):
             pipeline_model = joblib.load(MODEL_PATH)
+            print("[ANALYZE-RISK] AI Model loaded successfully on-demand.", flush=True)
         else:
+            print(f"[ANALYZE-RISK] AI Model NOT found at {MODEL_PATH}!", flush=True)
             raise HTTPException(status_code=500, detail="Không tìm thấy file bộ não AI. Vui lòng train lại mô hình!")
 
     try:

@@ -210,6 +210,7 @@ class DroneRecommendation(BaseModel):
     Est_Battery_Consumed: float
     Est_Battery_Remaining: float
     Is_Battery_Safe: bool
+    Ly_Do: Optional[str] = None
 
 class ConfigUpdate(BaseModel):
     warehouse_x: float
@@ -702,15 +703,21 @@ def analyze_risk(payload: RiskAnalysisRequest):
             # Estimate battery consumption and remaining battery after roundtrip
             est_consumed = estimate_battery_consumption(dist_km, weight_kg, live_wind, float(drone['max_carry_weight']), int(drone['propeller_count']))
             est_remaining = max(float(drone['battery_level']) - est_consumed, 0.0)
-            is_battery_safe = est_remaining >= min_batt
-            
             # Basic criteria checks (battery and weight capacity, and safety of return battery)
+            is_battery_safe = est_remaining >= min_batt
             meets_criteria = (drone['battery_level'] >= min_batt) and (drone['max_carry_weight'] >= weight_kg) and is_battery_safe
             
             is_approved = False
             ai_label = "Non-completed 🔴"
+            ly_do = ""
             
-            if meets_criteria:
+            if not (drone['battery_level'] >= min_batt):
+                ly_do = f"Pin hiện tại quá thấp ({drone['battery_level']}% < {min_batt}%)."
+            elif not (drone['max_carry_weight'] >= weight_kg):
+                ly_do = f"Quá tải trọng (Đơn: {weight_kg}kg > Drone: {drone['max_carry_weight']}kg)."
+            elif not is_battery_safe:
+                ly_do = f"Pin khứ hồi không đủ (Còn: {round(est_remaining, 1)}% < {min_batt}%)."
+            else:
                 # Predict risk using ML Model
                 X_live = pd.DataFrame([{
                     'propeller_count': int(drone['propeller_count']),
@@ -732,6 +739,11 @@ def analyze_risk(payload: RiskAnalysisRequest):
                 if prediction == "Completed":
                     is_approved = True
                     ai_label = "Completed 🟢"
+                    ly_do = "Đạt mọi tiêu chí an toàn và mô hình AI đề xuất bay."
+                else:
+                    is_approved = False
+                    ai_label = "Non-completed 🔴"
+                    ly_do = f"AI cảnh báo rủi ro (Gió {live_wind} m/s, Điểm rủi ro: {round(sim_risk, 2)})."
             
             approved_list.append({
                 "Drone_ID": drone['drone_id'],
@@ -745,7 +757,8 @@ def analyze_risk(payload: RiskAnalysisRequest):
                 "propeller_count": int(drone['propeller_count']),
                 "Est_Battery_Consumed": est_consumed,
                 "Est_Battery_Remaining": round(est_remaining, 2),
-                "Is_Battery_Safe": is_battery_safe
+                "Is_Battery_Safe": is_battery_safe,
+                "Ly_Do": ly_do
             })
 
         # Sort recommendations: Is_Approved descending (True first), Risk_Score ascending (lower risk first)

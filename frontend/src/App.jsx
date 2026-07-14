@@ -4,6 +4,7 @@ const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dispatch'); // 'orders', 'dispatch', or 'config'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Settings: Live real-time updates toggle
   const [isLiveTracking, setIsLiveTracking] = useState(() => {
@@ -1016,30 +1017,44 @@ function App() {
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
-      <nav className="sidebar">
+      <nav className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <button 
+          className="sidebar-toggle" 
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          title={sidebarCollapsed ? "Mở rộng thanh menu" : "Thu gọn thanh menu"}
+        >
+          {sidebarCollapsed ? "▶" : "◀"}
+        </button>
+
         <div className="sidebar-header">
           <span className="sidebar-logo">🛸</span>
-          <span className="sidebar-title">UAV DSS System</span>
+          {!sidebarCollapsed && <span className="sidebar-title">UAV DSS System</span>}
         </div>
 
         <ul className="menu-list">
           <li
             className={`menu-item ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
+            title={sidebarCollapsed ? "Khách Hàng Đặt Đơn" : ""}
           >
-            🛒 Khách Hàng Đặt Đơn
+            <span className="menu-icon">🛒</span>
+            {!sidebarCollapsed && <span className="menu-text">Khách Hàng Đặt Đơn</span>}
           </li>
           <li
             className={`menu-item ${activeTab === 'dispatch' ? 'active' : ''}`}
             onClick={() => setActiveTab('dispatch')}
+            title={sidebarCollapsed ? "Trung Tâm Điều Phối" : ""}
           >
-            🎛️ Trung Tâm Điều Phối
+            <span className="menu-icon">🎛️</span>
+            {!sidebarCollapsed && <span className="menu-text">Trung Tâm Điều Phối</span>}
           </li>
           <li
             className={`menu-item ${activeTab === 'config' ? 'active' : ''}`}
             onClick={() => setActiveTab('config')}
+            title={sidebarCollapsed ? "Cấu Hình Hệ Thống" : ""}
           >
-            ⚙️ Cấu Hình Hệ Thống
+            <span className="menu-icon">⚙️</span>
+            {!sidebarCollapsed && <span className="menu-text">Cấu Hinh Hệ Thống</span>}
           </li>
         </ul>
       </nav>
@@ -1421,6 +1436,7 @@ function App() {
                             <th>Tỉ lệ Thực Tải</th>
                             <th>Điểm Rủi Ro</th>
                             <th>Khuyến nghị từ AI</th>
+                            <th>Lý Do</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1460,6 +1476,9 @@ function App() {
                                 }}>
                                   {rec.Trang_Thai_AI}
                                 </span>
+                              </td>
+                              <td style={{ fontSize: '0.85rem', color: rec.Is_Approved ? 'var(--text-muted)' : 'var(--color-danger)' }}>
+                                {rec.Ly_Do}
                               </td>
                             </tr>
                           ))}

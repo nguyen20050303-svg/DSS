@@ -1,106 +1,121 @@
 ﻿Order_ID,Order_Status,Order_Weight_KG,Distance_KM,Wind_Speed_m_s,Drone_ID,Drone_Model,Propeller_Count,Max_Carry_Weight_KG,Weight_Ratio,Current_Battery,Est_Battery_Consumed,Est_Battery_Remaining,Is_Battery_Safe,Risk_Score,Is_Approved,AI_Recommendation
-ORD-001,Pending,6.7,0.67,1.83,D009,AirProbe 1,4,2.0,335.0,60,7.73,52.27,Safe,1.5931,Rejected,Non-completed
-ORD-001,Pending,6.7,0.67,1.83,D010,StockChecker,4,3.0,223.33,81,6.95,74.05,Safe,1.1464,Rejected,Non-completed
-ORD-001,Pending,6.7,0.67,1.83,D005,Watcher Pro,4,7.0,95.71,100,6.05,93.95,Safe,0.636,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D003,CropMaster,8,20.0,33.5,10,7.0,3.0,Low Battery / Unsafe,0.3871,Rejected,Non-completed
-ORD-001,Pending,6.7,0.67,1.83,D007,Guardian SR,8,12.0,55.83,11,7.2,3.8,Low Battery / Unsafe,0.4764,Rejected,Non-completed
-ORD-001,Pending,6.7,0.67,1.83,D240,SiteScan,6,11.0,60.91,58,6.54,51.46,Safe,0.4967,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D523,PipePatrol,6,14.0,47.86,95,6.43,88.57,Safe,0.4445,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D525,Inspecta X,6,15.0,44.67,58,6.41,51.59,Safe,0.4318,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D526,SiteScan,6,11.0,60.91,94,6.54,87.46,Safe,0.4967,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D527,FirstResponder,8,13.0,51.54,63,7.16,55.84,Safe,0.4593,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D528,ViewMax 500,4,8.0,83.75,91,5.97,85.03,Safe,0.5881,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D529,SnapShot Mini,4,1.0,670.0,76,10.09,65.91,Safe,2.9331,Rejected,Non-completed
-ORD-001,Pending,6.7,0.67,1.83,D530,PipePatrol,6,14.0,47.86,75,6.43,68.57,Safe,0.4445,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D531,SiteScan,6,11.0,60.91,96,6.54,89.46,Safe,0.4967,Approved,Completed
-ORD-001,Pending,6.7,0.67,1.83,D524,BladeChecker,6,16.0,41.88,45,6.38,38.62,Safe,0.4206,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D009,AirProbe 1,4,2.0,270.0,60,12.81,47.19,Safe,1.3586,Rejected,Non-completed
-ORD-002,Pending,5.4,1.18,1.83,D010,StockChecker,4,3.0,180.0,81,11.7,69.3,Safe,0.9986,Rejected,Non-completed
-ORD-002,Pending,5.4,1.18,1.83,D005,Watcher Pro,4,7.0,77.14,100,10.43,89.57,Safe,0.5872,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D003,CropMaster,8,20.0,27.0,10,12.22,0.0,Low Battery / Unsafe,0.3866,Rejected,Non-completed
-ORD-002,Pending,5.4,1.18,1.83,D007,Guardian SR,8,12.0,45.0,11,12.5,0.0,Low Battery / Unsafe,0.4586,Rejected,Non-completed
-ORD-002,Pending,5.4,1.18,1.83,D240,SiteScan,6,11.0,49.09,58,11.34,46.66,Safe,0.475,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D523,PipePatrol,6,14.0,38.57,95,11.2,83.8,Safe,0.4329,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D525,Inspecta X,6,15.0,36.0,58,11.16,46.84,Safe,0.4226,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D526,SiteScan,6,11.0,49.09,94,11.34,82.66,Safe,0.475,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D527,FirstResponder,8,13.0,41.54,63,12.45,50.55,Safe,0.4448,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D528,ViewMax 500,4,8.0,67.5,91,10.31,80.69,Safe,0.5486,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D529,SnapShot Mini,4,1.0,540.0,76,16.16,59.84,Safe,2.4386,Rejected,Non-completed
-ORD-002,Pending,5.4,1.18,1.83,D530,PipePatrol,6,14.0,38.57,75,11.2,63.8,Safe,0.4329,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D531,SiteScan,6,11.0,49.09,96,11.34,84.66,Safe,0.475,Approved,Completed
-ORD-002,Pending,5.4,1.18,1.83,D524,BladeChecker,6,16.0,33.75,45,11.13,33.87,Safe,0.4136,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D009,AirProbe 1,4,2.0,247.8,60,7.12,52.88,Safe,1.2443,Rejected,Non-completed
-ORD-003,Assigned,4.96,0.67,1.83,D010,StockChecker,4,3.0,165.2,81,6.54,74.46,Safe,0.9139,Rejected,Non-completed
-ORD-003,Assigned,4.96,0.67,1.83,D005,Watcher Pro,4,7.0,70.8,100,5.87,94.13,Safe,0.5363,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D003,CropMaster,8,20.0,24.78,10,6.92,3.08,Low Battery / Unsafe,0.3522,Rejected,Non-completed
-ORD-003,Assigned,4.96,0.67,1.83,D007,Guardian SR,8,12.0,41.3,11,7.07,3.93,Low Battery / Unsafe,0.4183,Rejected,Non-completed
-ORD-003,Assigned,4.96,0.67,1.83,D240,SiteScan,6,11.0,45.05,58,6.41,51.59,Safe,0.4333,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D523,PipePatrol,6,14.0,35.4,95,6.33,88.67,Safe,0.3947,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D525,Inspecta X,6,15.0,33.04,58,6.31,51.69,Safe,0.3853,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D526,SiteScan,6,11.0,45.05,94,6.41,87.59,Safe,0.4333,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D527,FirstResponder,8,13.0,38.12,63,7.04,55.96,Safe,0.4056,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D528,ViewMax 500,4,8.0,61.95,91,5.81,85.19,Safe,0.5009,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D529,SnapShot Mini,4,1.0,495.6,76,8.86,67.14,Safe,2.2355,Rejected,Non-completed
-ORD-003,Assigned,4.96,0.67,1.83,D530,PipePatrol,6,14.0,35.4,75,6.33,68.67,Safe,0.3947,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D531,SiteScan,6,11.0,45.05,96,6.41,89.59,Safe,0.4333,Approved,Completed
-ORD-003,Assigned,4.96,0.67,1.83,D524,BladeChecker,6,16.0,30.98,45,6.3,38.7,Safe,0.377,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D009,AirProbe 1,4,2.0,393.25,60,8.14,51.86,Safe,1.8261,Rejected,Non-completed
-ORD-004,Assigned,7.87,0.67,1.83,D010,StockChecker,4,3.0,262.17,81,7.22,73.78,Safe,1.3018,Rejected,Non-completed
-ORD-004,Assigned,7.87,0.67,1.83,D005,Watcher Pro,4,7.0,112.36,100,6.17,93.83,Safe,0.7025,Rejected,Non-completed
-ORD-004,Assigned,7.87,0.67,1.83,D003,CropMaster,8,20.0,39.32,10,7.05,2.95,Low Battery / Unsafe,0.4104,Rejected,Non-completed
-ORD-004,Assigned,7.87,0.67,1.83,D007,Guardian SR,8,12.0,65.54,11,7.28,3.72,Low Battery / Unsafe,0.5153,Rejected,Non-completed
-ORD-004,Assigned,7.87,0.67,1.83,D240,SiteScan,6,11.0,71.5,58,6.62,51.38,Safe,0.5391,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D523,PipePatrol,6,14.0,56.18,95,6.5,88.5,Safe,0.4778,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D525,Inspecta X,6,15.0,52.43,58,6.47,51.53,Safe,0.4628,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D526,SiteScan,6,11.0,71.5,94,6.62,87.38,Safe,0.5391,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D527,FirstResponder,8,13.0,60.5,63,7.24,55.76,Safe,0.4951,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D528,ViewMax 500,4,8.0,98.31,91,6.07,84.93,Safe,0.6463,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D529,SnapShot Mini,4,1.0,786.5,76,10.91,65.09,Safe,3.3991,Rejected,Non-completed
-ORD-004,Assigned,7.87,0.67,1.83,D530,PipePatrol,6,14.0,56.18,75,6.5,68.5,Safe,0.4778,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D531,SiteScan,6,11.0,71.5,96,6.62,89.38,Safe,0.5391,Approved,Completed
-ORD-004,Assigned,7.87,0.67,1.83,D524,BladeChecker,6,16.0,49.16,45,6.44,38.56,Safe,0.4497,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D009,AirProbe 1,4,2.0,316.05,60,55.36,4.64,Low Battery / Unsafe,1.7278,Rejected,Non-completed
-ORD-006,Pending,6.32,4.88,1.83,D010,StockChecker,4,3.0,210.7,81,49.96,31.04,Safe,1.3064,Rejected,Non-completed
-ORD-006,Pending,6.32,4.88,1.83,D005,Watcher Pro,4,7.0,90.3,100,43.79,56.21,Safe,0.8248,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D003,CropMaster,8,20.0,31.61,10,50.82,0.0,Low Battery / Unsafe,0.59,Rejected,Non-completed
-ORD-006,Pending,6.32,4.88,1.83,D007,Guardian SR,8,12.0,52.67,11,52.21,0.0,Low Battery / Unsafe,0.6743,Rejected,Non-completed
-ORD-006,Pending,6.32,4.88,1.83,D240,SiteScan,6,11.0,57.46,58,47.41,10.59,Safe,0.6935,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D523,PipePatrol,6,14.0,45.15,95,46.69,48.31,Safe,0.6442,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D525,Inspecta X,6,15.0,42.14,58,46.51,11.49,Safe,0.6322,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D526,SiteScan,6,11.0,57.46,94,47.41,46.59,Safe,0.6935,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D527,FirstResponder,8,13.0,48.62,63,51.95,11.05,Safe,0.6581,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D528,ViewMax 500,4,8.0,79.01,91,43.21,47.79,Safe,0.7796,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D529,SnapShot Mini,4,1.0,632.1,76,71.55,4.45,Low Battery / Unsafe,2.992,Rejected,Non-completed
-ORD-006,Pending,6.32,4.88,1.83,D530,PipePatrol,6,14.0,45.15,75,46.69,28.31,Safe,0.6442,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D531,SiteScan,6,11.0,57.46,96,47.41,48.59,Safe,0.6935,Approved,Completed
-ORD-006,Pending,6.32,4.88,1.83,D524,BladeChecker,6,16.0,39.51,45,46.35,0.0,Low Battery / Unsafe,0.6216,Rejected,Non-completed
-ORD-007,Pending,1.5,4.88,1.83,D009,AirProbe 1,4,2.0,75.0,60,43.0,17.0,Safe,0.7636,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D010,StockChecker,4,3.0,50.0,81,41.72,39.28,Safe,0.6636,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D005,Watcher Pro,4,7.0,21.43,100,40.26,59.74,Safe,0.5493,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D003,CropMaster,8,20.0,7.5,10,49.24,0.0,Low Battery / Unsafe,0.4936,Rejected,Non-completed
-ORD-007,Pending,1.5,4.88,1.83,D007,Guardian SR,8,12.0,12.5,11,49.57,0.0,Low Battery / Unsafe,0.5136,Rejected,Non-completed
-ORD-007,Pending,1.5,4.88,1.83,D240,SiteScan,6,11.0,13.64,58,44.84,13.16,Safe,0.5181,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D523,PipePatrol,6,14.0,10.71,95,44.67,50.33,Safe,0.5065,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D525,Inspecta X,6,15.0,10.0,58,44.63,13.37,Safe,0.5036,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D526,SiteScan,6,11.0,13.64,94,44.84,49.16,Safe,0.5181,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D527,FirstResponder,8,13.0,11.54,63,49.5,13.5,Safe,0.5098,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D528,ViewMax 500,4,8.0,18.75,91,40.12,50.88,Safe,0.5386,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D529,SnapShot Mini,4,1.0,150.0,76,46.85,29.15,Safe,1.0636,Rejected,Non-completed
-ORD-007,Pending,1.5,4.88,1.83,D530,PipePatrol,6,14.0,10.71,75,44.67,30.33,Safe,0.5065,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D531,SiteScan,6,11.0,13.64,96,44.84,51.16,Safe,0.5181,Approved,Completed
-ORD-007,Pending,1.5,4.88,1.83,D524,BladeChecker,6,16.0,9.38,45,44.59,0.41,Low Battery / Unsafe,0.5011,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D009,AirProbe 1,4,2.0,577.15,60,13.66,46.34,Safe,2.5767,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D010,StockChecker,4,3.0,384.77,81,11.7,69.3,Safe,1.8072,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D005,Watcher Pro,4,7.0,164.9,100,9.46,90.54,Safe,0.9277,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D003,CropMaster,8,20.0,57.71,10,10.44,0.0,Low Battery / Unsafe,0.499,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D007,Guardian SR,8,12.0,96.19,11,10.95,0.05,Low Battery / Unsafe,0.6529,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D240,SiteScan,6,11.0,104.94,58,9.98,48.02,Safe,0.6878,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D523,PipePatrol,6,14.0,82.45,95,9.71,85.29,Safe,0.5979,Approved,Completed
-ORD-009,Pending,11.54,0.97,1.83,D525,Inspecta X,6,15.0,76.95,58,9.65,48.35,Safe,0.5759,Approved,Completed
-ORD-009,Pending,11.54,0.97,1.83,D526,SiteScan,6,11.0,104.94,94,9.98,84.02,Safe,0.6878,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D527,FirstResponder,8,13.0,88.79,63,10.85,52.15,Safe,0.6233,Approved,Completed
-ORD-009,Pending,11.54,0.97,1.83,D528,ViewMax 500,4,8.0,144.29,91,9.25,81.75,Safe,0.8452,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D529,SnapShot Mini,4,1.0,1154.3,76,19.54,56.46,Safe,4.8853,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D530,PipePatrol,6,14.0,82.45,75,9.71,65.29,Safe,0.5979,Approved,Completed
-ORD-009,Pending,11.54,0.97,1.83,D531,SiteScan,6,11.0,104.94,96,9.98,86.02,Safe,0.6878,Rejected,Non-completed
-ORD-009,Pending,11.54,0.97,1.83,D524,BladeChecker,6,16.0,72.14,45,9.59,35.41,Safe,0.5567,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D40005,AirProbe 1,4,2.0,335.0,60,8.56,51.44,Safe,1.8571,Rejected,Non-completed
+ORD-001,Pending,6.7,0.67,4.03,D80002,Guardian SR,8,12.0,55.83,11,7.99,3.01,Low Battery / Unsafe,0.7404,Rejected,Non-completed
+ORD-001,Pending,6.7,0.67,4.03,D40006,StockChecker,4,3.0,223.33,81,7.77,73.23,Safe,1.4104,Rejected,Non-completed
+ORD-001,Pending,6.7,0.67,4.03,D80001,CropMaster,8,20.0,33.5,10,7.79,2.21,Low Battery / Unsafe,0.6511,Rejected,Non-completed
+ORD-001,Pending,6.7,0.67,4.03,D40004,Watcher Pro,4,7.0,95.71,100,6.88,93.12,Safe,0.9,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D40007,ViewMax 500,4,8.0,83.75,91,6.79,84.21,Safe,0.8521,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D40008,SnapShot Mini,4,1.0,670.0,76,10.92,65.08,Safe,3.1971,Rejected,Non-completed
+ORD-001,Pending,6.7,0.67,4.03,D60003,SiteScan,6,11.0,60.91,58,7.36,50.64,Safe,0.7607,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D60004,PipePatrol,6,14.0,47.86,95,7.26,87.74,Safe,0.7085,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D60005,BladeChecker,6,16.0,41.88,45,7.21,37.79,Safe,0.6846,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D60006,Inspecta X,6,15.0,44.67,58,7.23,50.77,Safe,0.6958,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D60007,SiteScan,6,11.0,60.91,94,7.36,86.64,Safe,0.7607,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D60009,SiteScan,6,11.0,60.91,96,7.36,88.64,Safe,0.7607,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D80004,FirstResponder,8,13.0,51.54,63,7.95,55.05,Safe,0.7233,Approved,Completed
+ORD-001,Pending,6.7,0.67,4.03,D60008,PipePatrol,6,14.0,47.86,100,7.26,92.74,Safe,0.7085,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D40005,AirProbe 1,4,2.0,270.0,60,14.27,45.73,Safe,1.6226,Rejected,Non-completed
+ORD-002,Pending,5.4,1.18,4.03,D80002,Guardian SR,8,12.0,45.0,11,13.9,0.0,Low Battery / Unsafe,0.7226,Rejected,Non-completed
+ORD-002,Pending,5.4,1.18,4.03,D40006,StockChecker,4,3.0,180.0,81,13.15,67.85,Safe,1.2626,Rejected,Non-completed
+ORD-002,Pending,5.4,1.18,4.03,D80001,CropMaster,8,20.0,27.0,10,13.62,0.0,Low Battery / Unsafe,0.6506,Rejected,Non-completed
+ORD-002,Pending,5.4,1.18,4.03,D40004,Watcher Pro,4,7.0,77.14,100,11.88,88.12,Safe,0.8512,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D40007,ViewMax 500,4,8.0,67.5,91,11.76,79.24,Safe,0.8126,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D40008,SnapShot Mini,4,1.0,540.0,76,17.61,58.39,Safe,2.7026,Rejected,Non-completed
+ORD-002,Pending,5.4,1.18,4.03,D60003,SiteScan,6,11.0,49.09,58,12.8,45.2,Safe,0.739,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D60004,PipePatrol,6,14.0,38.57,95,12.65,82.35,Safe,0.6969,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D60005,BladeChecker,6,16.0,33.75,45,12.58,32.42,Safe,0.6776,Rejected,Non-completed
+ORD-002,Pending,5.4,1.18,4.03,D60006,Inspecta X,6,15.0,36.0,58,12.61,45.39,Safe,0.6866,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D60007,SiteScan,6,11.0,49.09,94,12.8,81.2,Safe,0.739,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D60009,SiteScan,6,11.0,49.09,96,12.8,83.2,Safe,0.739,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D80004,FirstResponder,8,13.0,41.54,63,13.85,49.15,Safe,0.7088,Approved,Completed
+ORD-002,Pending,5.4,1.18,4.03,D60008,PipePatrol,6,14.0,38.57,100,12.65,87.35,Safe,0.6969,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D40005,AirProbe 1,4,2.0,247.8,60,7.95,52.05,Safe,1.5083,Rejected,Non-completed
+ORD-003,Assigned,4.96,0.67,4.03,D80002,Guardian SR,8,12.0,41.3,11,7.86,3.14,Low Battery / Unsafe,0.6823,Rejected,Non-completed
+ORD-003,Assigned,4.96,0.67,4.03,D40006,StockChecker,4,3.0,165.2,81,7.36,73.64,Safe,1.1779,Rejected,Non-completed
+ORD-003,Assigned,4.96,0.67,4.03,D80001,CropMaster,8,20.0,24.78,10,7.71,2.29,Low Battery / Unsafe,0.6162,Rejected,Non-completed
+ORD-003,Assigned,4.96,0.67,4.03,D40004,Watcher Pro,4,7.0,70.8,100,6.7,93.3,Safe,0.8003,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D40007,ViewMax 500,4,8.0,61.95,91,6.64,84.36,Safe,0.7649,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D40008,SnapShot Mini,4,1.0,495.6,76,9.69,66.31,Safe,2.4995,Rejected,Non-completed
+ORD-003,Assigned,4.96,0.67,4.03,D60003,SiteScan,6,11.0,45.05,58,7.23,50.77,Safe,0.6973,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D60004,PipePatrol,6,14.0,35.4,95,7.16,87.84,Safe,0.6587,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D60005,BladeChecker,6,16.0,30.98,45,7.12,37.88,Safe,0.641,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D60006,Inspecta X,6,15.0,33.04,58,7.14,50.86,Safe,0.6493,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D60007,SiteScan,6,11.0,45.05,94,7.23,86.77,Safe,0.6973,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D60009,SiteScan,6,11.0,45.05,96,7.23,88.77,Safe,0.6973,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D80004,FirstResponder,8,13.0,38.12,63,7.83,55.17,Safe,0.6696,Approved,Completed
+ORD-003,Assigned,4.96,0.67,4.03,D60008,PipePatrol,6,14.0,35.4,100,7.16,92.84,Safe,0.6587,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D40005,AirProbe 1,4,2.0,393.25,60,8.97,51.03,Safe,2.0901,Rejected,Non-completed
+ORD-004,Assigned,7.87,0.67,4.03,D80002,Guardian SR,8,12.0,65.54,11,8.08,2.92,Low Battery / Unsafe,0.7793,Rejected,Non-completed
+ORD-004,Assigned,7.87,0.67,4.03,D40006,StockChecker,4,3.0,262.17,81,8.05,72.95,Safe,1.5658,Rejected,Non-completed
+ORD-004,Assigned,7.87,0.67,4.03,D80001,CropMaster,8,20.0,39.32,10,7.84,2.16,Low Battery / Unsafe,0.6744,Rejected,Non-completed
+ORD-004,Assigned,7.87,0.67,4.03,D40004,Watcher Pro,4,7.0,112.36,100,6.99,93.01,Safe,0.9665,Rejected,Non-completed
+ORD-004,Assigned,7.87,0.67,4.03,D40007,ViewMax 500,4,8.0,98.31,91,6.89,84.11,Safe,0.9104,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D40008,SnapShot Mini,4,1.0,786.5,76,11.74,64.26,Safe,3.6631,Rejected,Non-completed
+ORD-004,Assigned,7.87,0.67,4.03,D60003,SiteScan,6,11.0,71.5,58,7.45,50.55,Safe,0.8031,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D60004,PipePatrol,6,14.0,56.18,95,7.32,87.68,Safe,0.7418,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D60005,BladeChecker,6,16.0,49.16,45,7.27,37.73,Safe,0.7137,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D60006,Inspecta X,6,15.0,52.43,58,7.29,50.71,Safe,0.7268,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D60007,SiteScan,6,11.0,71.5,94,7.45,86.55,Safe,0.8031,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D60009,SiteScan,6,11.0,71.5,96,7.45,88.55,Safe,0.8031,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D80004,FirstResponder,8,13.0,60.5,63,8.04,54.96,Safe,0.7591,Approved,Completed
+ORD-004,Assigned,7.87,0.67,4.03,D60008,PipePatrol,6,14.0,56.18,100,7.32,92.68,Safe,0.7418,Approved,Completed
+ORD-006,Pending,6.32,4.88,4.03,D40005,AirProbe 1,4,2.0,316.05,60,61.37,0.0,Low Battery / Unsafe,1.9918,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D80002,Guardian SR,8,12.0,52.67,11,58.01,0.0,Low Battery / Unsafe,0.9383,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D40006,StockChecker,4,3.0,210.7,81,55.97,25.03,Safe,1.5704,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D80001,CropMaster,8,20.0,31.61,10,56.62,0.0,Low Battery / Unsafe,0.854,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D40004,Watcher Pro,4,7.0,90.3,100,49.8,50.2,Safe,1.0888,Approved,Completed
+ORD-006,Pending,6.32,4.88,4.03,D40007,ViewMax 500,4,8.0,79.01,91,49.22,41.78,Safe,1.0436,Approved,Completed
+ORD-006,Pending,6.32,4.88,4.03,D40008,SnapShot Mini,4,1.0,632.1,76,77.56,0.0,Low Battery / Unsafe,3.256,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D60003,SiteScan,6,11.0,57.46,58,53.42,4.58,Low Battery / Unsafe,0.9575,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D60004,PipePatrol,6,14.0,45.15,95,52.7,42.3,Safe,0.9082,Approved,Completed
+ORD-006,Pending,6.32,4.88,4.03,D60005,BladeChecker,6,16.0,39.51,45,52.37,0.0,Low Battery / Unsafe,0.8856,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D60006,Inspecta X,6,15.0,42.14,58,52.52,5.48,Low Battery / Unsafe,0.8962,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D60007,SiteScan,6,11.0,57.46,94,53.42,40.58,Safe,0.9575,Approved,Completed
+ORD-006,Pending,6.32,4.88,4.03,D60009,SiteScan,6,11.0,57.46,96,53.42,42.58,Safe,0.9575,Approved,Completed
+ORD-006,Pending,6.32,4.88,4.03,D80004,FirstResponder,8,13.0,48.62,63,57.74,5.26,Low Battery / Unsafe,0.9221,Rejected,Non-completed
+ORD-006,Pending,6.32,4.88,4.03,D60008,PipePatrol,6,14.0,45.15,100,52.7,47.3,Safe,0.9082,Approved,Completed
+ORD-007,Pending,1.5,4.88,4.03,D40005,AirProbe 1,4,2.0,75.0,60,49.02,10.98,Safe,1.0276,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D80002,Guardian SR,8,12.0,12.5,11,55.36,0.0,Low Battery / Unsafe,0.7776,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D40006,StockChecker,4,3.0,50.0,81,47.74,33.26,Safe,0.9276,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D80001,CropMaster,8,20.0,7.5,10,55.03,0.0,Low Battery / Unsafe,0.7576,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D40004,Watcher Pro,4,7.0,21.43,100,46.27,53.73,Safe,0.8133,Approved,Completed
+ORD-007,Pending,1.5,4.88,4.03,D40007,ViewMax 500,4,8.0,18.75,91,46.13,44.87,Safe,0.8026,Approved,Completed
+ORD-007,Pending,1.5,4.88,4.03,D40008,SnapShot Mini,4,1.0,150.0,76,52.86,23.14,Safe,1.3276,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D60003,SiteScan,6,11.0,13.64,58,50.85,7.15,Low Battery / Unsafe,0.7821,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D60004,PipePatrol,6,14.0,10.71,95,50.68,44.32,Safe,0.7705,Approved,Completed
+ORD-007,Pending,1.5,4.88,4.03,D60005,BladeChecker,6,16.0,9.38,45,50.6,0.0,Low Battery / Unsafe,0.7651,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D60006,Inspecta X,6,15.0,10.0,58,50.64,7.36,Low Battery / Unsafe,0.7676,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D60007,SiteScan,6,11.0,13.64,94,50.85,43.15,Safe,0.7821,Approved,Completed
+ORD-007,Pending,1.5,4.88,4.03,D60009,SiteScan,6,11.0,13.64,96,50.85,45.15,Safe,0.7821,Approved,Completed
+ORD-007,Pending,1.5,4.88,4.03,D80004,FirstResponder,8,13.0,11.54,63,55.3,7.7,Low Battery / Unsafe,0.7738,Rejected,Non-completed
+ORD-007,Pending,1.5,4.88,4.03,D60008,PipePatrol,6,14.0,10.71,100,50.68,49.32,Safe,0.7705,Approved,Completed
+ORD-009,Pending,11.54,0.97,4.03,D40005,AirProbe 1,4,2.0,577.15,60,14.86,45.14,Safe,2.8407,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D80002,Guardian SR,8,12.0,96.19,11,12.1,0.0,Low Battery / Unsafe,0.9169,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D40006,StockChecker,4,3.0,384.77,81,12.9,68.1,Safe,2.0712,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D80001,CropMaster,8,20.0,57.71,10,11.6,0.0,Low Battery / Unsafe,0.763,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D40004,Watcher Pro,4,7.0,164.9,100,10.66,89.34,Safe,1.1917,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D40007,ViewMax 500,4,8.0,144.29,91,10.45,80.55,Safe,1.1093,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D40008,SnapShot Mini,4,1.0,1154.3,76,20.74,55.26,Safe,5.1493,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D60003,SiteScan,6,11.0,104.94,58,11.17,46.83,Safe,0.9518,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D60004,PipePatrol,6,14.0,82.45,95,10.91,84.09,Safe,0.8619,Approved,Completed
+ORD-009,Pending,11.54,0.97,4.03,D60005,BladeChecker,6,16.0,72.14,45,10.79,34.21,Safe,0.8207,Approved,Completed
+ORD-009,Pending,11.54,0.97,4.03,D60006,Inspecta X,6,15.0,76.95,58,10.84,47.16,Safe,0.8399,Approved,Completed
+ORD-009,Pending,11.54,0.97,4.03,D60007,SiteScan,6,11.0,104.94,94,11.17,82.83,Safe,0.9518,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D60009,SiteScan,6,11.0,104.94,96,11.17,84.83,Safe,0.9518,Rejected,Non-completed
+ORD-009,Pending,11.54,0.97,4.03,D80004,FirstResponder,8,13.0,88.79,63,12.0,51.0,Safe,0.8873,Approved,Completed
+ORD-009,Pending,11.54,0.97,4.03,D60008,PipePatrol,6,14.0,82.45,100,10.91,89.09,Safe,0.8619,Approved,Completed
+ORD-010,Pending,3.6,4.83,4.03,D40005,AirProbe 1,4,2.0,180.0,60,53.84,6.16,Low Battery / Unsafe,1.4451,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D80002,Guardian SR,8,12.0,30.0,11,55.94,0.0,Low Battery / Unsafe,0.8451,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D40006,StockChecker,4,3.0,120.0,81,50.8,30.2,Safe,1.2051,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D80001,CropMaster,8,20.0,18.0,10,55.15,0.0,Low Battery / Unsafe,0.7971,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D40004,Watcher Pro,4,7.0,51.43,100,47.32,52.68,Safe,0.9308,Approved,Completed
+ORD-010,Pending,3.6,4.83,4.03,D40007,ViewMax 500,4,8.0,45.0,91,46.99,44.01,Safe,0.9051,Approved,Completed
+ORD-010,Pending,3.6,4.83,4.03,D40008,SnapShot Mini,4,1.0,360.0,76,62.97,13.03,Safe,2.1651,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D60003,SiteScan,6,11.0,32.73,58,51.44,6.56,Low Battery / Unsafe,0.856,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D60004,PipePatrol,6,14.0,25.71,95,51.03,43.97,Safe,0.828,Approved,Completed
+ORD-010,Pending,3.6,4.83,4.03,D60005,BladeChecker,6,16.0,22.5,45,50.84,0.0,Low Battery / Unsafe,0.8151,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D60006,Inspecta X,6,15.0,24.0,58,50.93,7.07,Low Battery / Unsafe,0.8211,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D60007,SiteScan,6,11.0,32.73,94,51.44,42.56,Safe,0.856,Approved,Completed
+ORD-010,Pending,3.6,4.83,4.03,D60009,SiteScan,6,11.0,32.73,96,51.44,44.56,Safe,0.856,Approved,Completed
+ORD-010,Pending,3.6,4.83,4.03,D80004,FirstResponder,8,13.0,27.69,63,55.79,7.21,Low Battery / Unsafe,0.8359,Rejected,Non-completed
+ORD-010,Pending,3.6,4.83,4.03,D60008,PipePatrol,6,14.0,25.71,100,51.03,48.97,Safe,0.828,Approved,Completed

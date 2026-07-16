@@ -5,6 +5,7 @@ const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:8000';
 function App() {
   const [activeTab, setActiveTab] = useState('dispatch'); // 'orders', 'dispatch', or 'config'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sortBy, setSortBy] = useState('safety'); // 'safety', 'battery', or 'payload'
 
   // Settings: Live real-time updates toggle
   const [isLiveTracking, setIsLiveTracking] = useState(() => {
@@ -1010,6 +1011,40 @@ function App() {
     return "Không xác định";
   };
 
+  const getSortedRecommendations = () => {
+    if (!riskResults || !riskResults.recommendations) return [];
+    const items = [...riskResults.recommendations];
+    items.sort((a, b) => {
+      // Primary: approved goes first
+      if (a.Is_Approved !== b.Is_Approved) {
+        return a.Is_Approved ? -1 : 1;
+      }
+      
+      if (sortBy === 'battery') {
+        // Battery consumed ascending (less battery used first)
+        if (a.Est_Battery_Consumed !== b.Est_Battery_Consumed) {
+          return a.Est_Battery_Consumed - b.Est_Battery_Consumed;
+        }
+        return a.Risk_Score - b.Risk_Score;
+      } else if (sortBy === 'payload') {
+        // Tải trọng drone sát với trọng lượng hàng nhất (tránh lãng phí drone lớn cho hàng nhỏ)
+        const aMax = parseFloat(a.Suc_Tai_Max);
+        const bMax = parseFloat(b.Suc_Tai_Max);
+        if (aMax !== bMax) {
+          return aMax - bMax; // Drone có tải trọng nhỏ hơn (nhưng vẫn đủ chở hàng) xếp trước
+        }
+        return a.Risk_Score - b.Risk_Score;
+      } else {
+        // Default: safety (risk score ascending, lower risk first)
+        if (a.Risk_Score !== b.Risk_Score) {
+          return a.Risk_Score - b.Risk_Score;
+        }
+        return b.Est_Battery_Remaining - a.Est_Battery_Remaining;
+      }
+    });
+    return items;
+  };
+
   // Weather triggers check: heavy rain (>=65), storm (>=95), precipitation > 5.0mm, or wind > 10.0m/s
   const dangerousWmoCodes = [65, 67, 75, 82, 86, 95, 96, 99];
   const isExtremeWeather = dangerousWmoCodes.includes(weatherCode) || precipitation > 5.0 || liveWind > 10.0;
@@ -1387,6 +1422,73 @@ function App() {
               <div className="card-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <h3 className="card-title">🤖 Khuyến nghị an toàn từ Hệ thống</h3>
 
+                {riskResults && riskResults.status !== 'no_ready_drones' && (
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                    marginBottom: '1rem',
+                    padding: '0.6rem 0.8rem',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '500' }}>Ưu tiên:</span>
+                    <button
+                      onClick={() => setSortBy('battery')}
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '0.4rem 0.8rem',
+                        flexGrow: 1,
+                        background: sortBy === 'battery' ? 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' : 'rgba(255, 255, 255, 0.05)',
+                        color: sortBy === 'battery' ? '#0a0e1a' : 'var(--text-primary)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      🔋 Tối ưu hóa lượng sử dụng Pin
+                    </button>
+                    <button
+                      onClick={() => setSortBy('safety')}
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '0.4rem 0.8rem',
+                        flexGrow: 1,
+                        background: sortBy === 'safety' ? 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' : 'rgba(255, 255, 255, 0.05)',
+                        color: sortBy === 'safety' ? '#0a0e1a' : 'var(--text-primary)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      🛡️ Tiêu chuẩn An toàn cao nhất
+                    </button>
+                    <button
+                      onClick={() => setSortBy('payload')}
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '0.4rem 0.8rem',
+                        flexGrow: 1,
+                        background: sortBy === 'payload' ? 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' : 'rgba(255, 255, 255, 0.05)',
+                        color: sortBy === 'payload' ? '#0a0e1a' : 'var(--text-primary)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      ⚖️ Tối ưu hóa dự phòng tải trọng
+                    </button>
+                  </div>
+                )}
+
                 {riskResults === null ? (
                   <div className="alert alert-info" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: '3rem 2rem', textAlign: 'center' }}>
                     <div>
@@ -1440,7 +1542,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {riskResults.recommendations && riskResults.recommendations.map((rec) => (
+                          {getSortedRecommendations().map((rec) => (
                             <tr
                               key={rec.Drone_ID}
                               className={`clickable-row ${selectedDroneId === rec.Drone_ID ? 'selected-row' : ''}`}

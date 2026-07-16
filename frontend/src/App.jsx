@@ -1061,8 +1061,21 @@ function App() {
           {sidebarCollapsed ? "▶" : "◀"}
         </button>
 
-        <div className="sidebar-header">
-          <span className="sidebar-logo">🛸</span>
+        <div className="sidebar-header" style={{ gap: sidebarCollapsed ? '0' : '0.75rem', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+          <span className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#00f2fe', filter: 'drop-shadow(0 0 4px rgba(0, 242, 254, 0.6))' }}>
+              {/* Center Hub */}
+              <circle cx="12" cy="12" r="2.5" fill="#00f2fe" />
+              {/* X-Arms */}
+              <line x1="6.5" y1="6.5" x2="17.5" y2="17.5" />
+              <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
+              {/* Propellers */}
+              <circle cx="5" cy="5" r="1.8" strokeWidth="1.5" />
+              <circle cx="19" cy="5" r="1.8" strokeWidth="1.5" />
+              <circle cx="5" cy="19" r="1.8" strokeWidth="1.5" />
+              <circle cx="19" cy="19" r="1.8" strokeWidth="1.5" />
+            </svg>
+          </span>
           {!sidebarCollapsed && <span className="sidebar-title">UAV DSS System</span>}
         </div>
 
@@ -1620,7 +1633,7 @@ function App() {
                       const isRisky = selectedRec ? !selectedRec.Is_Approved : false;
                       const isDisabled = isExtremeWeather || !selectedDroneId || isRisky;
 
-                      let btnLabel = 'PHÁT LỆNH CẤT CÁNH (CONFIRM DISPATCH)';
+                      let btnLabel = 'PHÁT LỆNH CẤT CÁNH';
                       if (isExtremeWeather) {
                         btnLabel = '🔒 ĐÃ KHÓA CẤT CÁNH (DO THỜI TIẾT XẤU)';
                       } else if (selectedRec && !selectedRec.meets_criteria) {
@@ -1661,7 +1674,18 @@ function App() {
 
             {/* Bottom Row: Drones Split Tables */}
             <div style={{ marginTop: '2.5rem' }}>
-              <h3 className="card-title" style={{ marginBottom: '1.25rem' }}>🛸 Giám sát trạng thái đội UAV (UAV Fleet Monitoring)</h3>
+              <h3 className="card-title" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#00f2fe', verticalAlign: 'middle', filter: 'drop-shadow(0 0 3px rgba(0, 242, 254, 0.5))' }}>
+                  <circle cx="12" cy="12" r="2.5" fill="#00f2fe" />
+                  <line x1="6.5" y1="6.5" x2="17.5" y2="17.5" />
+                  <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
+                  <circle cx="5" cy="5" r="1.8" strokeWidth="1.5" />
+                  <circle cx="19" cy="5" r="1.8" strokeWidth="1.5" />
+                  <circle cx="5" cy="19" r="1.8" strokeWidth="1.5" />
+                  <circle cx="19" cy="19" r="1.8" strokeWidth="1.5" />
+                </svg>
+                <span>Giám sát trạng thái đội UAV (UAV Fleet Monitoring)</span>
+              </h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
 
@@ -1825,8 +1849,18 @@ function App() {
               <div
                 className={`sub-tab-item ${configSubTab === 'drones' ? 'active' : ''}`}
                 onClick={() => setConfigSubTab('drones')}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
               >
-                🛸 Quản lý Đội bay UAV
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: configSubTab === 'drones' ? '#0a0e1a' : '#00f2fe', verticalAlign: 'middle' }}>
+                  <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                  <line x1="6.5" y1="6.5" x2="17.5" y2="17.5" />
+                  <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
+                  <circle cx="5" cy="5" r="1.8" strokeWidth="1.5" />
+                  <circle cx="19" cy="5" r="1.8" strokeWidth="1.5" />
+                  <circle cx="5" cy="19" r="1.8" strokeWidth="1.5" />
+                  <circle cx="19" cy="19" r="1.8" strokeWidth="1.5" />
+                </svg>
+                <span>Quản lý Đội bay UAV</span>
               </div>
               <div
                 className={`sub-tab-item ${configSubTab === 'orders' ? 'active' : ''}`}
@@ -1968,7 +2002,18 @@ function App() {
             {configSubTab === 'drones' && (
               <div className="card-panel">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h2 className="card-title" style={{ margin: 0 }}>🛸 Quản lý Danh sách Đội thiết bị bay</h2>
+                  <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#00f2fe', verticalAlign: 'middle', filter: 'drop-shadow(0 0 3px rgba(0, 242, 254, 0.5))' }}>
+                      <circle cx="12" cy="12" r="2.5" fill="#00f2fe" />
+                      <line x1="6.5" y1="6.5" x2="17.5" y2="17.5" />
+                      <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
+                      <circle cx="5" cy="5" r="1.8" strokeWidth="1.5" />
+                      <circle cx="19" cy="5" r="1.8" strokeWidth="1.5" />
+                      <circle cx="5" cy="19" r="1.8" strokeWidth="1.5" />
+                      <circle cx="19" cy="19" r="1.8" strokeWidth="1.5" />
+                    </svg>
+                    <span>Quản lý Danh sách Đội thiết bị bay</span>
+                  </h2>
                   <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => openDroneModal('add')}>
                     ➕ Thêm Drone Mới
                   </button>

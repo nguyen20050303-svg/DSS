@@ -222,6 +222,7 @@ class DroneRecommendation(BaseModel):
     Est_Battery_Consumed: float
     Est_Battery_Remaining: float
     Is_Battery_Safe: bool
+    meets_criteria: bool
     Ly_Do: Optional[str] = None
 
 class ConfigUpdate(BaseModel):
@@ -773,6 +774,7 @@ def analyze_risk(payload: RiskAnalysisRequest):
                 "Est_Battery_Consumed": est_consumed,
                 "Est_Battery_Remaining": round(est_remaining, 2),
                 "Is_Battery_Safe": is_battery_safe,
+                "meets_criteria": meets_criteria,
                 "Ly_Do": ly_do
             })
 
